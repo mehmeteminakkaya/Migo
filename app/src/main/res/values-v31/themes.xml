@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Migo.Starting" parent="Theme.Migo">
+        <item name="android:windowSplashScreenBackground">@color/migo_splash_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/white</item>
+    </style>
+</resources>

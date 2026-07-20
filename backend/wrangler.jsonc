@@ -1,0 +1,47 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "migo-cloudflare",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-17",
+  "compatibility_flags": ["nodejs_compat"],
+  "secrets": {
+    "required": ["NVIDIA_API_KEY"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "migo-users",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "CLIENT_AI_RATE_LIMITER",
+      "namespace_id": "41001",
+      "simple": {
+        "limit": 12,
+        "period": 60
+      }
+    },
+    {
+      "name": "NETWORK_AI_RATE_LIMITER",
+      "namespace_id": "41002",
+      "simple": {
+        "limit": 30,
+        "period": 60
+      }
+    },
+    {
+      "name": "SYNC_RATE_LIMITER",
+      "namespace_id": "41003",
+      "simple": {
+        "limit": 60,
+        "period": 60
+      }
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}

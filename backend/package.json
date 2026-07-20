@@ -1,0 +1,15 @@
+{
+  "name": "migo-api",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "check": "wrangler deploy --dry-run && wrangler check startup",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "wrangler": "^4.112.0"
+  }
+}

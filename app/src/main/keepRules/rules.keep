@@ -1,0 +1,16 @@
+# Add project specific R8 rules here.
+# AGP will combine all keep rule files in src/main/keepRules to pass to R8
+#
+# For more details, see
+#   https://d.android.com/r/tools/r8/keep-rules
+
+# If your project uses WebView with JS, uncomment the following
+# and specify the fully qualified class name to the JavaScript interface
+# class:
+#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
+#   public *;
+#}
+
+# PDFBox references this optional JPEG-2000 decoder. Migo only extracts CV text,
+# so the decoder is not required and R8 can safely ignore the absent class.
+-dontwarn com.gemalto.jp2.JP2Decoder
