@@ -2081,7 +2081,7 @@ private fun MainShellPreview() {
     MigoTheme {
         MainShell(
             session = CareerSession(
-                profile = UserProfile("Mehmet Akkaya", "İstanbul Üniversitesi", "Bilgisayar Mühendisliği", "3. sınıf"),
+                profile = UserProfile("Deniz Yılmaz", "İstanbul Üniversitesi", "Bilgisayar Mühendisliği", "3. sınıf"),
                 interests = listOf("Teknoloji", "Tasarım", "Veri"),
                 skills = listOf("Problem çözme", "Analitik düşünme", "İletişim"),
                 analysis = CareerAnalysis(

@@ -19,17 +19,21 @@ class MigoPreferences(
     preferencesName: String = PREFERENCES_NAME
 ) {
     private val preferences = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
+    private val localDataCipher = LocalDataCipher()
 
     fun saveSession(session: CareerSession) {
         preferences.edit {
-            putString(KEY_SESSION, encodeSession(session))
+            putString(KEY_SESSION, localDataCipher.encrypt(encodeSession(session)))
             putBoolean(KEY_PENDING_CLOUD_DELETE, false)
         }
     }
 
     fun loadSession(): CareerSession? {
         val raw = preferences.getString(KEY_SESSION, null) ?: return null
-        return decodeSession(raw)
+        val decrypted = runCatching { localDataCipher.decrypt(raw) }.getOrNull() ?: return null
+        val session = decodeSession(decrypted) ?: return null
+        migrateToEncryptedStorage(KEY_SESSION, raw, decrypted)
+        return session
     }
 
     fun encodeSession(session: CareerSession): String = session.toJson().toString()
@@ -70,16 +74,22 @@ class MigoPreferences(
     }
 
     fun syncSecret(): String {
-        preferences.getString(KEY_SYNC_SECRET, null)
-            ?.takeIf { it.length in 40..128 }
-            ?.let { return it }
+        preferences.getString(KEY_SYNC_SECRET, null)?.let { stored ->
+            val decrypted = runCatching { localDataCipher.decrypt(stored) }.getOrNull()
+            decrypted?.takeIf { it.length in 40..128 }?.let { validSecret ->
+                migrateToEncryptedStorage(KEY_SYNC_SECRET, stored, validSecret)
+                return validSecret
+            }
+        }
 
         val bytes = ByteArray(32).also(SecureRandom()::nextBytes)
         val generated = Base64.encodeToString(
             bytes,
             Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
         )
-        preferences.edit(commit = true) { putString(KEY_SYNC_SECRET, generated) }
+        preferences.edit(commit = true) {
+            putString(KEY_SYNC_SECRET, localDataCipher.encrypt(generated))
+        }
         return generated
     }
 
@@ -88,6 +98,15 @@ class MigoPreferences(
 
     fun markCloudDeleteComplete() {
         preferences.edit { putBoolean(KEY_PENDING_CLOUD_DELETE, false) }
+    }
+
+    private fun migrateToEncryptedStorage(key: String, storedValue: String, plainText: String) {
+        if (localDataCipher.isEncrypted(storedValue)) return
+        runCatching {
+            preferences.edit(commit = true) {
+                putString(key, localDataCipher.encrypt(plainText))
+            }
+        }
     }
 
     private fun CareerSession.toJson(): JSONObject = JSONObject()

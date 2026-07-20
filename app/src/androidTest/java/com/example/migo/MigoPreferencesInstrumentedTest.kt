@@ -49,11 +49,39 @@ class MigoPreferencesInstrumentedTest {
         )
 
         preferences.saveSession(session)
+        val storedSession = context
+            .getSharedPreferences("migo_test_preferences", 0)
+            .getString("career_session", null)
+        assertTrue(storedSession?.startsWith("migo:v1:") == true)
+        assertFalse(storedSession.orEmpty().contains("Test Kullanıcı"))
         val restored = preferences.loadSession()
 
         assertEquals(session, restored)
         preferences.clear()
         assertNull(preferences.loadSession())
+    }
+
+    @Test
+    fun legacyPlainTextSession_isMigratedToEncryptedStorage() {
+        preferences.clear()
+        val session = CareerSession(
+            profile = UserProfile("Deniz Yılmaz", "Örnek Üniversitesi", "Yazılım Mühendisliği", "2. sınıf"),
+            interests = listOf("Mobil"),
+            skills = listOf("Kotlin"),
+            analysis = CareerAnalysis("Başlık", "Özet", emptyList(), emptyList(), emptyList()),
+            targetCareer = "Android Geliştirici"
+        )
+        val rawSession = preferences.encodeSession(session)
+        context.getSharedPreferences("migo_test_preferences", 0)
+            .edit()
+            .putString("career_session", rawSession)
+            .commit()
+
+        assertEquals(session, preferences.loadSession())
+        val migrated = context.getSharedPreferences("migo_test_preferences", 0)
+            .getString("career_session", null)
+        assertTrue(migrated?.startsWith("migo:v1:") == true)
+        assertFalse(migrated.orEmpty().contains("Deniz Yılmaz"))
     }
 
     @Test

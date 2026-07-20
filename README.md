@@ -25,11 +25,13 @@ Windows/OneDrive dosya kilitlerini önlemek için çıktılar `%LOCALAPPDATA%\Mi
 .\setup-release-signing.cmd
 ```
 
-Parolayı güvenli bir parola yöneticisine kaydet; `keystore` klasörü ile `keystore.properties` dosyasını şifreli olarak yedekle. Ardından imzalı AAB üret:
+Parolayı güvenli bir parola yöneticisine kaydet; `keystore` klasörü ile `keystore.properties` dosyasını şifreli olarak yedekle. Ardından imzalı AAB'yi üret ve imzasını doğrula:
 
 ```powershell
-.\gradlew.bat :app:bundleRelease
+.\build-play-release.cmd
 ```
+
+Hazır paket ve SHA-256 özeti git tarafından dışlanan `release-output` klasörüne yazılır.
 
 Her Play Store güncellemesinde `app/build.gradle.kts` içindeki `versionCode` değerini artır.
 
@@ -60,6 +62,7 @@ ve destek sayfası `/support` adresinde yayınlanır. Ayrıntılar için
 Google Play listeleme metni, Data Safety çalışma taslağı ve yayın kontrol listesi
 `store/google-play` klasöründedir. Bunlar Console'a girilmeden önce canlı Worker adresi,
 geliştirici iletişim bilgileri ve NVIDIA veri saklama koşulları son kez doğrulanmalıdır.
+Telefon ekran görüntüleri ve 1024×500 özellik grafiği `store/store-assets` klasöründedir.
 
 ## Kontroller
 
@@ -70,3 +73,6 @@ cd backend
 .\cloudflare.cmd deploy --dry-run
 .\cloudflare.cmd check startup
 ```
+
+GitHub Actions aynı Android ve Worker kontrollerini her pull request ve `main` push'unda
+otomatik çalıştırır.

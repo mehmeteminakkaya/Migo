@@ -17,3 +17,4 @@ backend/.dev.vars
 backend/*.cpuprofile
 /keystore/
 /keystore.properties
+/release-output/
