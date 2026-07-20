@@ -1,0 +1,8 @@
+Migo'nun ilk sürümü yayında.
+
+• AI destekli kariyer profili ve rol önerileri
+• Kişisel hedef ve görevlerden oluşan yol haritası
+• Sohbet geçmişini koruyan AI kariyer koçu
+• PDF CV metni için güçlü yön ve gelişim analizi
+• YÖK Atlas tabanlı üniversite ve program araması
+• Anonim bulut eşitleme ve uygulama içinden veri silme

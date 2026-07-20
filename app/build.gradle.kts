@@ -1,3 +1,4 @@
+import java.net.URI
 import java.util.Properties
 
 plugins {
@@ -11,7 +12,11 @@ val localProperties = Properties().apply {
         propertiesFile.inputStream().use(::load)
     }
 }
-val migoBackendUrl = localProperties.getProperty("MIGO_BACKEND_URL", "")
+val migoBackendUrl = (
+    localProperties.getProperty("MIGO_BACKEND_URL")
+        ?: System.getenv("MIGO_BACKEND_URL")
+        ?: ""
+    ).trim().trimEnd('/')
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties().apply {
     if (keystorePropertiesFile.exists()) {
@@ -106,6 +111,17 @@ tasks.matching { it.name == "preReleaseBuild" }.configureEach {
         check(hasReleaseSigning) {
             "Release paketi imzalanmadan üretilemez. Önce proje kökünde " +
                 "setup-release-signing.cmd çalıştır ve upload anahtarını güvenli yedekle."
+        }
+
+        val backendUri = runCatching { URI(migoBackendUrl) }.getOrNull()
+        check(
+            backendUri != null &&
+                backendUri.scheme.equals("https", ignoreCase = true) &&
+                !backendUri.host.isNullOrBlank() &&
+                backendUri.userInfo == null
+        ) {
+            "Release için geçerli bir HTTPS MIGO_BACKEND_URL zorunludur. " +
+                "local.properties dosyasını veya MIGO_BACKEND_URL ortam değişkenini kontrol et."
         }
     }
 }

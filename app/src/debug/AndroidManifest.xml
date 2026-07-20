@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <permission
+        android:name="com.migo.kariyer.permission.SEED_STORE_ASSETS"
+        android:protectionLevel="signature" />
+
+    <uses-permission android:name="com.migo.kariyer.permission.SEED_STORE_ASSETS" />
+
+    <application>
+        <receiver
+            android:name=".StoreAssetSeedReceiver"
+            android:exported="true"
+            android:permission="com.migo.kariyer.permission.SEED_STORE_ASSETS">
+            <intent-filter>
+                <action android:name="com.migo.kariyer.SEED_STORE_ASSETS" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>
