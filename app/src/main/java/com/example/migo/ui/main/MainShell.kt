@@ -38,18 +38,24 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.Chat
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.CloudDone
+import androidx.compose.material.icons.rounded.DeleteForever
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PictureAsPdf
+import androidx.compose.material.icons.rounded.PrivacyTip
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.AlertDialog
@@ -86,6 +92,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -102,6 +109,7 @@ import com.example.migo.data.model.CoachMessage
 import com.example.migo.data.model.CvAnalysis
 import com.example.migo.data.model.UserProfile
 import com.example.migo.data.remote.NvidiaCareerService
+import com.example.migo.data.remote.MigoLegalLinks
 import com.example.migo.ui.theme.GradientHeroEnd
 import com.example.migo.ui.theme.GradientHeroMid
 import com.example.migo.ui.theme.GradientHeroStart
@@ -1528,6 +1536,7 @@ private fun cleanCoachMarkdown(text: String): String = text
 @Composable
 private fun ProfileOverviewScreen(session: CareerSession, onReset: () -> Unit) {
     var showResetDialog by remember { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1658,15 +1667,89 @@ private fun ProfileOverviewScreen(session: CareerSession, onReset: () -> Unit) {
         }
 
         Spacer(modifier = Modifier.height(22.dp))
-        TextButton(
-            onClick = { showResetDialog = true },
-            modifier = Modifier.fillMaxWidth()
+        Text("Gizlilik ve verilerin", style = MaterialTheme.typography.titleLarge)
+        Spacer(modifier = Modifier.height(5.dp))
+        Text(
+            "Migo'da paylaştığın bilgiler senin kontrolünde.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(22.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f))
         ) {
-            Text(
-                "Profili ve ilerlemeyi sıfırla",
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.labelMedium
-            )
+            Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                PrivacySummaryRow(
+                    icon = Icons.Rounded.CloudDone,
+                    text = "Profilin, ilerlemen ve son 50 AI koç mesajın anonim bulut kasasında eşitlenir."
+                )
+                PrivacySummaryRow(
+                    icon = Icons.Rounded.PictureAsPdf,
+                    text = "CV dosyan saklanmaz; cihazda çıkarılan metin yalnızca analiz için gönderilir."
+                )
+                PrivacySummaryRow(
+                    icon = Icons.Rounded.PrivacyTip,
+                    text = "Etkin olmayan bulut kasaları 180 gün sonra otomatik silinir."
+                )
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
+                )
+                PrivacyLinkRow(
+                    title = "Gizlilik Bildirimi",
+                    subtitle = "Hangi verinin neden işlendiğini gör",
+                    onClick = { uriHandler.openUri(MigoLegalLinks.privacy) }
+                )
+                PrivacyLinkRow(
+                    title = "Kullanım Koşulları",
+                    subtitle = "Migo'nun kullanım kapsamını incele",
+                    onClick = { uriHandler.openUri(MigoLegalLinks.terms) }
+                )
+                PrivacyLinkRow(
+                    title = "Destek",
+                    subtitle = "Soru, hata ve veri talebi gönder",
+                    onClick = { uriHandler.openUri(MigoLegalLinks.support) }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showResetDialog = true },
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f)
+            ),
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Rounded.DeleteForever,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Tüm verilerimi sil",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Text(
+                        "Cihazdaki ve buluttaki Migo verilerini kaldır",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
         }
         Spacer(modifier = Modifier.height(18.dp))
     }
@@ -1674,17 +1757,82 @@ private fun ProfileOverviewScreen(session: CareerSession, onReset: () -> Unit) {
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
-            title = { Text("Her şeyi sıfırla?") },
-            text = { Text("Profilin, hedefin ve tamamladığın adımlar cihazdan silinecek.") },
+            title = { Text("Tüm verilerini sil?") },
+            text = {
+                Text(
+                    "Profilin, hedefin, ilerlemen ve koç konuşmaların bu cihazdan hemen silinecek. " +
+                        "Bulut kasası için de silme isteği gönderilecek; çevrimdışıysan sonraki açılışta yeniden denenecek."
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     showResetDialog = false
                     onReset()
-                }) { Text("Sıfırla", color = MaterialTheme.colorScheme.error) }
+                }) { Text("Verilerimi sil", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
                 TextButton(onClick = { showResetDialog = false }) { Text("Vazgeç") }
             }
+        )
+    }
+}
+
+@Composable
+private fun PrivacySummaryRow(icon: ImageVector, text: String) {
+    Row(
+        modifier = Modifier.padding(horizontal = 15.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(19.dp)
+        )
+        Spacer(modifier = Modifier.width(11.dp))
+        Text(
+            text,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun PrivacyLinkRow(title: String, subtitle: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 15.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.primaryContainer,
+            shape = RoundedCornerShape(11.dp)
+        ) {
+            Icon(
+                Icons.Rounded.Description,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(8.dp).size(18.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(11.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Icon(
+            Icons.AutoMirrored.Rounded.OpenInNew,
+            contentDescription = "Tarayıcıda aç",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(17.dp)
         )
     }
 }

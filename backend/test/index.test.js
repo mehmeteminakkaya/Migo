@@ -33,29 +33,47 @@ function createMemoryDb() {
           return rows.get(values[0]) || null;
         },
         async run() {
+          let changes = 0;
           if (sql.startsWith("INSERT")) {
             rows.set(values[0], {
               auth_hash: values[1],
               session_json: values[2],
               session_version: 1,
-              updated_at: values[4]
+              updated_at: values[4],
+              expires_at: values[5]
             });
+            changes = 1;
           } else if (sql.startsWith("UPDATE")) {
-            const current = rows.get(values[2]);
-            rows.set(values[2], {
+            const current = rows.get(values[3]);
+            rows.set(values[3], {
               ...current,
               session_json: values[0],
               session_version: current.session_version + 1,
-              updated_at: values[1]
+              updated_at: values[1],
+              expires_at: values[2]
             });
+            changes = 1;
+          } else if (sql.includes("WHERE expires_at")) {
+            for (const [userId, row] of rows) {
+              if (row.expires_at && row.expires_at <= values[0]) {
+                rows.delete(userId);
+                changes += 1;
+              }
+            }
           } else if (sql.startsWith("DELETE")) {
-            rows.delete(values[0]);
+            changes = rows.delete(values[0]) ? 1 : 0;
           } else {
             throw new Error(`Unexpected run query: ${sql}`);
           }
-          return { success: true, results: [], meta: {} };
+          return { success: true, results: [], meta: { changes } };
         }
       };
+    },
+    expireAll() {
+      for (const row of rows.values()) row.expires_at = "2000-01-01T00:00:00.000Z";
+    },
+    size() {
+      return rows.size;
     }
   };
 }
@@ -96,11 +114,32 @@ test("health exposes the current API contract", async () => {
   const payload = await response.json();
 
   assert.equal(response.status, 200);
-  assert.equal(response.headers.get("x-migo-api-version"), "3");
+  assert.equal(response.headers.get("x-migo-api-version"), "4");
   assert.equal(payload.service, "migo-cloudflare");
-  assert.equal(payload.apiVersion, 3);
+  assert.equal(payload.apiVersion, 4);
   assert.ok(payload.features.includes("cv_analysis"));
   assert.ok(payload.features.includes("cloud_sync"));
+  assert.ok(payload.features.includes("legal_pages"));
+  assert.ok(payload.features.includes("automatic_data_retention"));
+});
+
+test("public legal pages expose policy metadata and hardened HTML", async () => {
+  const privacy = await worker.fetch(new Request("https://migo.test/privacy"), {}, {});
+  const terms = await worker.fetch(new Request("https://migo.test/terms"), {}, {});
+  const support = await worker.fetch(new Request("https://migo.test/support"), {}, {});
+  const metadata = await worker.fetch(new Request("https://migo.test/v1/legal"), {}, {});
+  const policy = await metadata.json();
+
+  assert.equal(privacy.status, 200);
+  assert.match(privacy.headers.get("content-type"), /^text\/html/);
+  assert.match(privacy.headers.get("content-security-policy"), /default-src 'none'/);
+  assert.equal(privacy.headers.get("x-frame-options"), "DENY");
+  assert.match(await privacy.text(), /180 gün sonra otomatik silinir/);
+  assert.equal(terms.status, 200);
+  assert.equal(support.status, 200);
+  assert.equal(policy.policyVersion, 1);
+  assert.equal(policy.privacyUrl, "https://migo.test/privacy");
+  assert.equal(policy.retentionDays, 180);
 });
 
 test("AI endpoints require an installation identity", async () => {
@@ -181,4 +220,20 @@ test("cloud vault rejects a different secret and enforces its own quota", async 
   assert.equal(forbidden.status, 403);
   assert.equal(limited.status, 429);
   assert.equal(limited.headers.get("retry-after"), "60");
+});
+
+test("scheduled retention deletes expired anonymous vaults", async () => {
+  const database = createMemoryDb();
+  const environment = env({ DB: database });
+  await worker.fetch(
+    syncRequest("PUT", JSON.stringify({ session: { targetCareer: "Test" } })), environment, {}
+  );
+  assert.equal(database.size(), 1);
+  database.expireAll();
+
+  const pending = [];
+  await worker.scheduled({}, environment, { waitUntil: (promise) => pending.push(promise) });
+  await Promise.all(pending);
+
+  assert.equal(database.size(), 0);
 });

@@ -79,4 +79,18 @@ class MigoPreferencesInstrumentedTest {
 
         assertFalse(preferences.isCloudDeletePending())
     }
+
+    @Test
+    fun privacyConsent_isVersionedAndRemovedWithUserData() {
+        preferences.clear()
+        assertFalse(preferences.hasAcceptedPrivacy())
+
+        preferences.acceptPrivacy()
+
+        assertTrue(preferences.hasAcceptedPrivacy())
+        assertTrue(preferences.privacyConsentAcceptedAt() > 0L)
+
+        preferences.clear()
+        assertFalse(preferences.hasAcceptedPrivacy())
+    }
 }

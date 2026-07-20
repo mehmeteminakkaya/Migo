@@ -49,9 +49,17 @@ cd backend
 bash ./deploy.sh
 ```
 
-Deploy scripti D1 migration'larını uygular; canlı `/health`, bulut eşitleme ve YÖK katalog
-uçlarını doğrular. Ardından `local.properties` içindeki Android backend adresini otomatik
-günceller. Ayrıntılar için [backend/README.md](backend/README.md) dosyasına bak.
+Deploy scripti D1 migration'larını uygular; canlı `/health`, bulut eşitleme, YÖK katalog
+ve yasal belge uçlarını doğrular. Ardından `local.properties` içindeki Android backend
+adresini otomatik günceller. Gizlilik bildirimi `/privacy`, kullanım koşulları `/terms`
+ve destek sayfası `/support` adresinde yayınlanır. Ayrıntılar için
+[backend/README.md](backend/README.md) dosyasına bak.
+
+## Mağaza hazırlığı
+
+Google Play listeleme metni, Data Safety çalışma taslağı ve yayın kontrol listesi
+`store/google-play` klasöründedir. Bunlar Console'a girilmeden önce canlı Worker adresi,
+geliştirici iletişim bilgileri ve NVIDIA veri saklama koşulları son kez doğrulanmalıdır.
 
 ## Kontroller
 

@@ -100,3 +100,12 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
+
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    doFirst {
+        check(hasReleaseSigning) {
+            "Release paketi imzalanmadan üretilemez. Önce proje kökünde " +
+                "setup-release-signing.cmd çalıştır ve upload anahtarını güvenli yedekle."
+        }
+    }
+}

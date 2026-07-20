@@ -79,6 +79,9 @@ try {
         try {
             $health = Invoke-RestMethod -Uri "$backendUrl/health" -TimeoutSec 12
             $catalog = Invoke-RestMethod -Uri "$backendUrl/v1/education/universities?q=istanbul" -TimeoutSec 20
+            $legal = Invoke-RestMethod -Uri "$backendUrl/v1/legal" -TimeoutSec 12
+            $privacyPage = Invoke-WebRequest -UseBasicParsing -Uri "$backendUrl/privacy" -TimeoutSec 12
+            $termsPage = Invoke-WebRequest -UseBasicParsing -Uri "$backendUrl/terms" -TimeoutSec 12
             $aiProbeStatus = 0
             $syncProbeStatus = 0
             try {
@@ -113,17 +116,22 @@ try {
                 }
             }
             $features = @($health.features)
-            if ($health.apiVersion -ge 3 -and
+            if ($health.apiVersion -ge 4 -and
                 $features -contains "education_catalog" -and
                 $features -contains "cv_analysis" -and
                 $features -contains "cloud_sync" -and
+                $features -contains "legal_pages" -and
+                $features -contains "automatic_data_retention" -and
                 @($catalog.items).Count -gt 0 -and
+                $legal.policyVersion -ge 1 -and
+                $privacyPage.StatusCode -eq 200 -and
+                $termsPage.StatusCode -eq 200 -and
                 $aiProbeStatus -eq 400 -and
                 $syncProbeStatus -eq 404) {
                 $verified = $true
                 break
             }
-            $lastVerificationError = "Canli Worker API surumu, D1, katalog veya NVIDIA secret yapilandirmasi gecersiz."
+            $lastVerificationError = "Canli Worker API surumu, D1, katalog, yasal sayfalar veya NVIDIA secret yapilandirmasi gecersiz."
         }
         catch {
             $lastVerificationError = $_.Exception.Message

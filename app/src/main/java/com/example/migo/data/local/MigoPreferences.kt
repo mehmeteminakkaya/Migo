@@ -40,9 +40,24 @@ class MigoPreferences(
     fun clear() {
         preferences.edit {
             remove(KEY_SESSION)
+            remove(KEY_PRIVACY_CONSENT_VERSION)
+            remove(KEY_PRIVACY_CONSENT_AT)
             putBoolean(KEY_PENDING_CLOUD_DELETE, true)
         }
     }
+
+    fun hasAcceptedPrivacy(): Boolean =
+        preferences.getInt(KEY_PRIVACY_CONSENT_VERSION, 0) >= CURRENT_PRIVACY_VERSION
+
+    fun acceptPrivacy() {
+        preferences.edit(commit = true) {
+            putInt(KEY_PRIVACY_CONSENT_VERSION, CURRENT_PRIVACY_VERSION)
+            putLong(KEY_PRIVACY_CONSENT_AT, System.currentTimeMillis())
+        }
+    }
+
+    fun privacyConsentAcceptedAt(): Long =
+        preferences.getLong(KEY_PRIVACY_CONSENT_AT, 0L)
 
     fun installationId(): String {
         preferences.getString(KEY_INSTALLATION_ID, null)
@@ -204,12 +219,15 @@ class MigoPreferences(
         for (index in 0 until length()) add(transform(getJSONObject(index)))
     }
 
-    private companion object {
-        const val PREFERENCES_NAME = "migo_preferences"
-        const val KEY_SESSION = "career_session"
-        const val KEY_INSTALLATION_ID = "installation_id"
-        const val KEY_SYNC_SECRET = "sync_secret"
-        const val KEY_PENDING_CLOUD_DELETE = "pending_cloud_delete"
-        const val MAX_COACH_MESSAGES = 50
+    companion object {
+        const val CURRENT_PRIVACY_VERSION = 1
+        private const val PREFERENCES_NAME = "migo_preferences"
+        private const val KEY_SESSION = "career_session"
+        private const val KEY_INSTALLATION_ID = "installation_id"
+        private const val KEY_SYNC_SECRET = "sync_secret"
+        private const val KEY_PENDING_CLOUD_DELETE = "pending_cloud_delete"
+        private const val KEY_PRIVACY_CONSENT_VERSION = "privacy_consent_version"
+        private const val KEY_PRIVACY_CONSENT_AT = "privacy_consent_at"
+        private const val MAX_COACH_MESSAGES = 50
     }
 }

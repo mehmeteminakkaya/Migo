@@ -1,3 +1,5 @@
+import { legalDocumentResponse, legalMetadata } from "./legal-pages.js";
+
 const NVIDIA_ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions";
 const PRIMARY_MODEL = "mistralai/mistral-small-4-119b-2603";
 const FALLBACK_MODEL = "meta/llama-3.3-70b-instruct";
@@ -6,6 +8,7 @@ const YOK_ATLAS_API = "https://yokatlas.yok.gov.tr/api/tercih-kilavuz";
 const CATALOG_CACHE_SECONDS = 7_200;
 const MAX_CATALOG_BYTES = 1_000_000;
 const MAX_SYNC_BYTES = 250_000;
+const VAULT_RETENTION_DAYS = 180;
 const INSTALLATION_HEADER = "x-migo-installation";
 const INSTALLATION_ID_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
 const SYNC_SECRET_PATTERN = /^[A-Za-z0-9_-]{40,128}$/;
@@ -15,12 +18,25 @@ const AI_PATHS = new Set(["/v1/career-analysis", "/v1/coach", "/v1/cv-analysis"]
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    const legalResponse = request.method === "GET" ? legalDocumentResponse(url.pathname) : null;
+    if (legalResponse) return legalResponse;
+    if (request.method === "GET" && url.pathname === "/v1/legal") {
+      return json(legalMetadata(url.origin), 200, "public, max-age=3600");
+    }
     if (request.method === "GET" && url.pathname === "/health") {
       return json({
         status: "ok",
         service: "migo-cloudflare",
-        apiVersion: 3,
-        features: ["education_catalog", "career_analysis", "coach", "cv_analysis", "cloud_sync"]
+        apiVersion: 4,
+        features: [
+          "education_catalog",
+          "career_analysis",
+          "coach",
+          "cv_analysis",
+          "cloud_sync",
+          "legal_pages",
+          "automatic_data_retention"
+        ]
       });
     }
     if (request.method === "GET" && url.pathname === "/v1/education/universities") {
@@ -78,6 +94,9 @@ export default {
       logError(url.pathname, error);
       return json({ error: safeError(error) }, 502);
     }
+  },
+  async scheduled(_controller, env, ctx) {
+    ctx.waitUntil(deleteExpiredVaults(env));
   }
 };
 
@@ -126,16 +145,17 @@ async function syncSession(request, env) {
     }
 
     const updatedAt = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + VAULT_RETENTION_DAYS * 86_400_000).toISOString();
     if (row) {
       await env.DB.prepare(
-        "UPDATE user_vaults SET session_json = ?, session_version = session_version + 1, updated_at = ? WHERE user_id = ?"
-      ).bind(sessionJson, updatedAt, installationId).run();
+        "UPDATE user_vaults SET session_json = ?, session_version = session_version + 1, updated_at = ?, expires_at = ? WHERE user_id = ?"
+      ).bind(sessionJson, updatedAt, expiresAt, installationId).run();
     } else {
       await env.DB.prepare(
-        "INSERT INTO user_vaults (user_id, auth_hash, session_json, session_version, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)"
-      ).bind(installationId, authHash, sessionJson, updatedAt, updatedAt).run();
+        "INSERT INTO user_vaults (user_id, auth_hash, session_json, session_version, created_at, updated_at, expires_at) VALUES (?, ?, ?, 1, ?, ?, ?)"
+      ).bind(installationId, authHash, sessionJson, updatedAt, updatedAt, expiresAt).run();
     }
-    return json({ synced: true, updatedAt });
+    return json({ synced: true, updatedAt, expiresAt });
   }
 
   if (!row) return json({ error: "Bulut yedeği bulunamadı." }, 404);
@@ -158,6 +178,21 @@ async function syncSession(request, env) {
     return json({ deleted: true });
   }
   return json({ error: "Bu uçta GET, PUT veya DELETE kullan." }, 405);
+}
+
+async function deleteExpiredVaults(env) {
+  if (!env.DB) {
+    logError("vault_retention", new Error("D1 binding eksik."));
+    return;
+  }
+  const result = await env.DB.prepare(
+    "DELETE FROM user_vaults WHERE expires_at IS NOT NULL AND expires_at <= ?"
+  ).bind(new Date().toISOString()).run();
+  console.log(JSON.stringify({
+    level: "info",
+    operation: "vault_retention",
+    deleted: Number(result?.meta?.changes || 0)
+  }));
 }
 
 async function hashSyncSecret(value) {
@@ -528,7 +563,7 @@ function json(value, status = 200, cacheControl = "no-store", extraHeaders = {})
       "content-type": "application/json; charset=utf-8",
       "cache-control": cacheControl,
       "x-content-type-options": "nosniff",
-      "x-migo-api-version": "3",
+      "x-migo-api-version": "4",
       ...extraHeaders
     }
   });

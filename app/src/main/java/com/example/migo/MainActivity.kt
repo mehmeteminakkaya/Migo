@@ -50,6 +50,7 @@ import com.example.migo.data.remote.CloudSyncService
 import com.example.migo.data.remote.MigoClientIdentity
 import com.example.migo.ui.analysis.AiDiscoveryScreen
 import com.example.migo.ui.analysis.CareerAnalysisScreen
+import com.example.migo.ui.legal.PrivacyConsentScreen
 import com.example.migo.ui.main.MainShell
 import com.example.migo.ui.profile.ProfileSetupScreen
 import com.example.migo.ui.theme.GradientHeroEnd
@@ -60,7 +61,6 @@ import com.example.migo.ui.theme.MigoTheme
 import com.example.migo.ui.theme.MigoViolet
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,10 +86,17 @@ private fun MigoApp() {
         )
         true
     }
-    val appScope = rememberCoroutineScope()
     val initialSession = remember { preferences.loadSession() }
+    val initialPrivacyConsent = remember { preferences.hasAcceptedPrivacy() }
+    var hasPrivacyConsent by remember { mutableStateOf(initialPrivacyConsent) }
     var currentScreen by rememberSaveable {
-        mutableIntStateOf(if (initialSession == null) SCREEN_WELCOME else SCREEN_MAIN)
+        mutableIntStateOf(
+            when {
+                initialSession != null && initialPrivacyConsent -> SCREEN_MAIN
+                initialSession != null -> SCREEN_CONSENT
+                else -> SCREEN_WELCOME
+            }
+        )
     }
     var profile by remember { mutableStateOf<UserProfile?>(null) }
     var selectedInterests by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -98,12 +105,20 @@ private fun MigoApp() {
     var careerSession by remember { mutableStateOf(initialSession) }
     var cloudSyncReady by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        if (preferences.isCloudDeletePending()) {
+    LaunchedEffect(hasPrivacyConsent) {
+        val deleteWasPending = preferences.isCloudDeletePending()
+        if (deleteWasPending) {
             CloudSyncService.deleteSession().onSuccess {
                 preferences.markCloudDeleteComplete()
             }
-        } else {
+        }
+
+        if (!hasPrivacyConsent) {
+            cloudSyncReady = false
+            return@LaunchedEffect
+        }
+
+        if (!deleteWasPending) {
             CloudSyncService.pullSession().onSuccess { rawSession ->
                 rawSession
                     ?.let(preferences::decodeSession)
@@ -117,9 +132,9 @@ private fun MigoApp() {
         cloudSyncReady = true
     }
 
-    LaunchedEffect(careerSession, cloudSyncReady) {
+    LaunchedEffect(careerSession, cloudSyncReady, hasPrivacyConsent) {
         val session = careerSession ?: return@LaunchedEffect
-        if (!cloudSyncReady) return@LaunchedEffect
+        if (!cloudSyncReady || !hasPrivacyConsent) return@LaunchedEffect
         delay(900)
         CloudSyncService.pushSession(preferences.encodeSession(session))
     }
@@ -130,6 +145,10 @@ private fun MigoApp() {
             SCREEN_AI_DISCOVERY -> SCREEN_PROFILE
             else -> SCREEN_WELCOME
         }
+    }
+
+    BackHandler(enabled = currentScreen == SCREEN_CONSENT) {
+        currentScreen = SCREEN_WELCOME
     }
 
     AnimatedContent(
@@ -147,6 +166,14 @@ private fun MigoApp() {
         label = "screen_transition"
     ) { screen ->
         when (screen) {
+            SCREEN_CONSENT -> PrivacyConsentScreen(
+                onBack = { currentScreen = SCREEN_WELCOME },
+                onAccept = {
+                    preferences.acceptPrivacy()
+                    hasPrivacyConsent = true
+                    currentScreen = if (careerSession == null) SCREEN_PROFILE else SCREEN_MAIN
+                }
+            )
             SCREEN_PROFILE -> ProfileSetupScreen(
                 initialProfile = profile,
                 onBackClick = { currentScreen = SCREEN_WELCOME },
@@ -210,11 +237,7 @@ private fun MigoApp() {
                         },
                         onReset = {
                             preferences.clear()
-                            appScope.launch {
-                                CloudSyncService.deleteSession().onSuccess {
-                                    preferences.markCloudDeleteComplete()
-                                }
-                            }
+                            hasPrivacyConsent = false
                             profile = null
                             selectedInterests = emptyList()
                             selectedSkills = emptyList()
@@ -225,16 +248,21 @@ private fun MigoApp() {
                     )
                 }
             }
-            else -> WelcomeScreen(onStartClick = { currentScreen = SCREEN_PROFILE })
+            else -> WelcomeScreen(
+                onStartClick = {
+                    currentScreen = if (hasPrivacyConsent) SCREEN_PROFILE else SCREEN_CONSENT
+                }
+            )
         }
     }
 }
 
 private const val SCREEN_WELCOME      = 0
-private const val SCREEN_PROFILE      = 1
-private const val SCREEN_AI_DISCOVERY = 2
-private const val SCREEN_ANALYSIS     = 3
-private const val SCREEN_MAIN         = 4
+private const val SCREEN_CONSENT      = 1
+private const val SCREEN_PROFILE      = 2
+private const val SCREEN_AI_DISCOVERY = 3
+private const val SCREEN_ANALYSIS     = 4
+private const val SCREEN_MAIN         = 5
 
 // ─── Welcome Screen ────────────────────────────────────────────────────────────
 @Composable
