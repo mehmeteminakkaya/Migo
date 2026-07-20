@@ -39,12 +39,7 @@ try {
         throw "Cloudflare secret listesi okunamadi."
     }
     if (($secretOutput -join "`n") -notmatch '"name"\s*:\s*"NVIDIA_API_KEY"') {
-        Write-Host "Bu Worker icin NVIDIA_API_KEY eksik." -ForegroundColor Yellow
-        Write-Host "NVIDIA anahtarini gizli isteme yapistirip Enter'a bas." -ForegroundColor Cyan
-        & "$PSScriptRoot\cloudflare.cmd" secret put NVIDIA_API_KEY
-        if ($LASTEXITCODE -ne 0) {
-            throw "NVIDIA_API_KEY Cloudflare secret olarak kaydedilemedi."
-        }
+        throw "Bu Worker icin NVIDIA_API_KEY secret'i eksik."
     }
 
     $propertiesPath = Join-Path $PSScriptRoot "..\local.properties"

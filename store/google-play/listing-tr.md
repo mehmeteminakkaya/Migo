@@ -37,8 +37,8 @@ iş kararlarını doğrulanmış kaynaklarla birlikte değerlendir.
 
 - Kategori: Eğitim
 - Etiket önerileri: Kariyer, eğitim, üretkenlik, iş arama
-- Gizlilik politikası: Deploy sonrasında `https://migo-cloudflare.<workers-subdomain>.workers.dev/privacy`
-- Destek: Deploy sonrasında `https://migo-cloudflare.<workers-subdomain>.workers.dev/support`
+- Gizlilik politikası: Deploy sonrasında `https://migo-api.<workers-subdomain>.workers.dev/privacy`
+- Destek: Deploy sonrasında `https://migo-api.<workers-subdomain>.workers.dev/support`
 - Reklam içerir: Hayır
 - Uygulama içi satın alma: İlk sürümde hayır
 

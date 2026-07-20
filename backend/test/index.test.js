@@ -115,7 +115,7 @@ test("health exposes the current API contract", async () => {
 
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("x-migo-api-version"), "4");
-  assert.equal(payload.service, "migo-cloudflare");
+  assert.equal(payload.service, "migo-api");
   assert.equal(payload.apiVersion, 4);
   assert.ok(payload.features.includes("cv_analysis"));
   assert.ok(payload.features.includes("cloud_sync"));

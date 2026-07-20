@@ -26,7 +26,7 @@ export default {
     if (request.method === "GET" && url.pathname === "/health") {
       return json({
         status: "ok",
-        service: "migo-cloudflare",
+        service: "migo-api",
         apiVersion: 4,
         features: [
           "education_catalog",
