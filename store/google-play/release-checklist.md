@@ -2,7 +2,7 @@
 
 ## Kod ve backend
 
-- [ ] `backend/deploy-auth.cmd` ile `migo-cloudflare` Worker'ını yayınla.
+- [ ] `backend/deploy-auth.cmd` ile `migo-api` Worker'ını yayınla.
 - [ ] Scriptin yazdığı `MIGO_BACKEND_URL` değerinin yeni Worker adresi olduğunu doğrula.
 - [ ] Canlı `/health`, `/privacy`, `/terms`, `/support` ve `/v1/legal` uçlarını aç.
 - [ ] NVIDIA kariyer analizi, koç ve CV analizi isteklerini gerçek cihazda dene.
@@ -41,7 +41,7 @@
 
 ## Şu anki yayın engelleri
 
-- Canlı `migo-cloudflare` Worker deploy'u ve uçtan uca canlı servis testi.
+- Canlı `migo-api` Worker deploy'u ve uçtan uca canlı servis testi.
 - Upload keystore oluşturulması ve imzalı release AAB.
 - Play Console geliştirici iletişim bilgileri, Data Safety beyanı ve mağaza görselleri.
 - Gerçek cihaz/iç test geri bildirimi.

@@ -15,7 +15,7 @@ uygular, yeni Worker'da `NVIDIA_API_KEY` yoksa NVIDIA anahtarını gizli olarak 
 ve canlı API'yi doğrular.
 Dönen HTTPS adresini Android projesindeki `local.properties` dosyasına otomatik ekler:
 
-`MIGO_BACKEND_URL=https://migo-cloudflare.<hesap>.workers.dev`
+`MIGO_BACKEND_URL=https://migo-api.<hesap>.workers.dev`
 
 Worker, kurulum kimliği başına dakikada 12 ve ağ başına dakikada 30 AI isteği sınırı uygular.
 Kariyer oturumu ve son 50 koç mesajı `migo-users` D1 veritabanında, kurulum başına
