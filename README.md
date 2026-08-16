@@ -108,7 +108,7 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 * 🌐 **Portfolyo:** [mehmeteminakkaya.com](https://mehmeteminakkaya.com)
 * 💼 **LinkedIn:** [linkedin.com/in/mehmeteminakkaya](https://www.linkedin.com/in/mehmeteminakkaya/)
 * 🐙 **GitHub:** [@mehmeteminakkaya](https://github.com/mehmeteminakkaya)
-* 📬 **E-Posta:** [aktaha@gmail.com](mailto:aktaha@gmail.com)
+* 📬 **E-Posta:** [mehmeteminakkaya12@gmail.com](mailto:mehmeteminakkaya12@gmail.com)
 
 ---
 
