@@ -11,10 +11,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 private val DarkColorScheme = darkColorScheme(
-    primary          = MigoViolet,
-    onPrimary        = Color.White,
-    primaryContainer = MigoVioletDeep,
-    onPrimaryContainer = Color(0xFFD8D6FF),
+    primary          = MigoAccentDark,
+    onPrimary        = Color(0xFF2B1503),
+    primaryContainer = MigoAccentDeep,
+    onPrimaryContainer = Color(0xFFF3DFC7),
     secondary        = MigoCyan,
     onSecondary      = Color(0xFF003D35),
     secondaryContainer = Color(0xFF004D42),
@@ -29,7 +29,7 @@ private val DarkColorScheme = darkColorScheme(
     onSurface        = Color(0xFFECEBFF),
     surfaceVariant   = MigoDarkSurfaceAlt,
     onSurfaceVariant = MigoDarkMuted,
-    surfaceTint      = MigoViolet,
+    surfaceTint      = MigoAccentDark,
     outline          = MigoDarkOutline.copy(alpha = 0.7f),
     outlineVariant   = MigoDarkOutline,
     error            = MigoError,
@@ -40,10 +40,10 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary          = MigoViolet,
+    primary          = MigoAccent,
     onPrimary        = Color.White,
     primaryContainer = MigoVioletContainer,
-    onPrimaryContainer = MigoVioletDeep,
+    onPrimaryContainer = MigoAccentDeep,
     secondary        = Color(0xFF008B7A),
     onSecondary      = Color.White,
     secondaryContainer = MigoCyanSoft,
@@ -58,7 +58,7 @@ private val LightColorScheme = lightColorScheme(
     onSurface        = MigoLightInk,
     surfaceVariant   = MigoLightSurfaceAlt,
     onSurfaceVariant = MigoLightMuted,
-    surfaceTint      = MigoViolet,
+    surfaceTint      = MigoAccent,
     outline          = MigoLightOutline.copy(alpha = 0.6f),
     outlineVariant   = MigoLightOutline,
     error            = Color(0xFFD32F2F),

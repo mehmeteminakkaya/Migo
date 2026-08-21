@@ -23,19 +23,22 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.Route
+import androidx.compose.material.icons.rounded.WorkOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -53,19 +56,12 @@ import com.example.migo.ui.analysis.CareerAnalysisScreen
 import com.example.migo.ui.legal.PrivacyConsentScreen
 import com.example.migo.ui.main.MainShell
 import com.example.migo.ui.profile.ProfileSetupScreen
-import com.example.migo.ui.theme.GradientHeroEnd
-import com.example.migo.ui.theme.GradientHeroMid
-import com.example.migo.ui.theme.GradientHeroStart
-import com.example.migo.ui.theme.MigoCyan
 import com.example.migo.ui.theme.MigoTheme
-import com.example.migo.ui.theme.MigoViolet
-import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        PDFBoxResourceLoader.init(applicationContext)
         enableEdgeToEdge()
         setContent {
             MigoTheme {
@@ -82,7 +78,9 @@ private fun MigoApp() {
     remember(preferences) {
         MigoClientIdentity.configure(
             installationValue = preferences.installationId(),
-            syncSecretValue = preferences.syncSecret()
+            syncSecretValue = preferences.syncSecret(),
+            tokenValue = preferences.installationToken(),
+            onTokenUpdated = preferences::saveInstallationToken
         )
         true
     }
@@ -201,22 +199,34 @@ private fun MigoApp() {
             }
             SCREEN_ANALYSIS -> {
                 val analysis = careerAnalysis
-                if (analysis == null) {
+                val completedProfile = profile
+                if (analysis == null || completedProfile == null) {
                     currentScreen = SCREEN_PROFILE
                 } else {
                     CareerAnalysisScreen(
+                        profile = completedProfile,
                         analysis = analysis,
                         onBackClick = { currentScreen = SCREEN_PROFILE },
-                        onTargetSelected = { targetCareer ->
-                            val completedProfile = profile ?: return@CareerAnalysisScreen
+                        onTargetSelected = { selectedCareer ->
+                            val updatedAnalysis = analysis.copy(
+                                careers = analysis.careers.map { career ->
+                                    if (career.title == selectedCareer.title) selectedCareer else career
+                                }
+                            )
                             val newSession = CareerSession(
                                 profile = completedProfile,
                                 interests = selectedInterests,
                                 skills = selectedSkills,
-                                analysis = analysis,
-                                targetCareer = targetCareer,
-                                tasks = CareerTaskPlanner.build(targetCareer, analysis.nextSteps)
+                                analysis = updatedAnalysis,
+                                targetCareer = selectedCareer.title,
+                                tasks = CareerTaskPlanner.build(
+                                    targetCareer = selectedCareer.title,
+                                    nextSteps = updatedAnalysis.nextSteps,
+                                    recommendation = selectedCareer,
+                                    classLevel = completedProfile.classLevel
+                                )
                             )
+                            careerAnalysis = updatedAnalysis
                             preferences.saveSession(newSession)
                             careerSession = newSession
                             currentScreen = SCREEN_MAIN
@@ -275,25 +285,6 @@ fun WelcomeScreen(onStartClick: () -> Unit, modifier: Modifier = Modifier) {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Decorative glows
-        Box(
-            modifier = Modifier
-                .size(420.dp)
-                .offset(x = (-80).dp, y = (-120).dp)
-                .blur(120.dp)
-                .clip(CircleShape)
-                .background(MigoViolet.copy(alpha = 0.28f))
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .size(300.dp)
-                .offset(x = 80.dp, y = 80.dp)
-                .blur(100.dp)
-                .clip(CircleShape)
-                .background(MigoCyan.copy(alpha = 0.18f))
-        )
-
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val landscapeLayout = maxWidth > maxHeight
             if (landscapeLayout) {
@@ -352,34 +343,37 @@ private fun WelcomeBrand(visible: Boolean) {
         animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium),
         label = "logo_scale"
     )
-    Box(
+    Surface(
         modifier = Modifier
             .scale(scaleAnim)
-            .size(80.dp)
-            .clip(RoundedCornerShape(26.dp))
-            .background(Brush.linearGradient(listOf(GradientHeroMid, GradientHeroEnd))),
-        contentAlignment = Alignment.Center
+            .size(88.dp),
+        shape = RoundedCornerShape(6.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant
+        )
     ) {
-        Icon(
-            Icons.Rounded.AutoAwesome,
-            contentDescription = null,
-            tint = Color.White,
-            modifier = Modifier.size(40.dp)
+        androidx.compose.foundation.Image(
+            painter = painterResource(R.drawable.migo_logo_foreground),
+            contentDescription = "Migo",
+            modifier = Modifier.padding(12.dp)
         )
     }
     Spacer(modifier = Modifier.height(16.dp))
     Text(
         stringResource(R.string.app_name),
         style = MaterialTheme.typography.headlineLarge,
-        fontWeight = FontWeight.ExtraBold,
+        fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.onBackground
     )
     Surface(
-        color = MaterialTheme.colorScheme.primaryContainer,
-        shape = RoundedCornerShape(20.dp)
+        color = Color.Transparent,
+        shape = RoundedCornerShape(4.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
     ) {
         Text(
-            "AI Kariyer Koçun",
+            "AI destekli kariyer rehberi",
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.primary,
@@ -393,7 +387,7 @@ private fun WelcomePitch() {
     Text(
         stringResource(R.string.welcome_title),
         style = MaterialTheme.typography.displaySmall,
-        fontWeight = FontWeight.ExtraBold,
+        fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.onBackground,
         textAlign = TextAlign.Center,
         lineHeight = 42.sp
@@ -410,46 +404,47 @@ private fun WelcomePitch() {
 
 @Composable
 private fun WelcomeFeatures() {
-    WelcomeFeature(emoji = "🎯", text = stringResource(R.string.feature_discover))
+    WelcomeFeature(
+        icon = Icons.Rounded.Explore,
+        text = stringResource(R.string.feature_discover)
+    )
     Spacer(modifier = Modifier.height(12.dp))
-    WelcomeFeature(emoji = "🗺️", text = stringResource(R.string.feature_target))
+    WelcomeFeature(
+        icon = Icons.Rounded.WorkOutline,
+        text = stringResource(R.string.feature_target)
+    )
     Spacer(modifier = Modifier.height(12.dp))
-    WelcomeFeature(emoji = "⚡", text = stringResource(R.string.feature_progress))
+    WelcomeFeature(
+        icon = Icons.Rounded.Route,
+        text = stringResource(R.string.feature_progress)
+    )
 }
 
 @Composable
 private fun WelcomeCta(onStartClick: () -> Unit) {
     Button(
         onClick = onStartClick,
-        modifier = Modifier.fillMaxWidth().height(58.dp),
-        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth().height(56.dp),
+        shape = RoundedCornerShape(4.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = Color.Transparent,
-            contentColor = Color.White
-        ),
-        contentPadding = PaddingValues(0.dp)
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        )
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Brush.linearGradient(listOf(GradientHeroMid, GradientHeroEnd))),
-            contentAlignment = Alignment.Center
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    stringResource(R.string.start_button),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Icon(
-                    Icons.Rounded.ChevronRight,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+            Text(
+                stringResource(R.string.start_button),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Icon(
+                Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
     Spacer(modifier = Modifier.height(12.dp))
@@ -462,19 +457,32 @@ private fun WelcomeCta(onStartClick: () -> Unit) {
 }
 
 @Composable
-private fun WelcomeFeature(emoji: String, text: String) {
+private fun WelcomeFeature(icon: ImageVector, text: String) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp),
-        shadowElevation = 2.dp
+        shape = RoundedCornerShape(6.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text(emoji, fontSize = 22.sp)
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
             Text(
                 text,
                 style = MaterialTheme.typography.titleSmall,

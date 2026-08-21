@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -41,8 +42,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
@@ -50,8 +49,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.migo.data.remote.MigoLegalLinks
-import com.example.migo.ui.theme.GradientHeroEnd
-import com.example.migo.ui.theme.GradientHeroMid
 
 @Composable
 fun PrivacyConsentScreen(
@@ -76,25 +73,25 @@ fun PrivacyConsentScreen(
         Spacer(modifier = Modifier.height(10.dp))
         Box(
             modifier = Modifier
-                .size(72.dp)
+                .size(64.dp)
                 .background(
-                    Brush.linearGradient(listOf(GradientHeroMid, GradientHeroEnd)),
-                    RoundedCornerShape(22.dp)
+                    MaterialTheme.colorScheme.primary,
+                    RoundedCornerShape(6.dp)
                 ),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 Icons.Rounded.PrivacyTip,
                 contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(36.dp)
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(32.dp)
             )
         }
         Spacer(modifier = Modifier.height(22.dp))
         Text(
             "Verilerin senin kontrolünde",
             style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.ExtraBold
+            fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
@@ -125,9 +122,9 @@ fun PrivacyConsentScreen(
         Spacer(modifier = Modifier.height(18.dp))
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+            shape = RoundedCornerShape(6.dp),
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
             Row(
                 modifier = Modifier.padding(14.dp),
@@ -163,7 +160,7 @@ fun PrivacyConsentScreen(
                 .fillMaxWidth()
                 .height(54.dp)
                 .testTag("privacy_consent_continue"),
-            shape = RoundedCornerShape(17.dp)
+            shape = RoundedCornerShape(4.dp)
         ) {
             Text("Onayla ve devam et", fontWeight = FontWeight.Bold)
         }
@@ -183,7 +180,7 @@ fun PrivacyConsentScreen(
 private fun ConsentInfoCard(icon: ImageVector, title: String, description: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(6.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
@@ -192,14 +189,14 @@ private fun ConsentInfoCard(icon: ImageVector, title: String, description: Strin
             verticalAlignment = Alignment.Top
         ) {
             Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                shape = RoundedCornerShape(13.dp)
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = CircleShape
             ) {
                 Icon(
                     icon,
                     contentDescription = null,
                     modifier = Modifier.padding(10.dp).size(20.dp),
-                    tint = MaterialTheme.colorScheme.secondary
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
             Spacer(modifier = Modifier.size(12.dp))

@@ -14,8 +14,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.PersonOutline
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,21 +29,20 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.migo.R
 import com.example.migo.data.model.EducationOption
 import com.example.migo.data.model.UserProfile
 import com.example.migo.data.remote.EducationCatalogService
-import com.example.migo.ui.theme.GradientHeroEnd
-import com.example.migo.ui.theme.GradientHeroMid
-import com.example.migo.ui.theme.GradientHeroStart
 import com.example.migo.ui.theme.MigoSuccess
 import kotlinx.coroutines.delay
+import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -80,8 +85,8 @@ fun ProfileSetupScreen(
         universityLoading = false
     }
 
-    LaunchedEffect(department, programId) {
-        if (programId.isNotBlank() || department.trim().length < 2) {
+    LaunchedEffect(department, programId, universityId) {
+        if (universityId.isBlank() || programId.isNotBlank() || department.trim().length < 2) {
             programResults = emptyList(); programLoading = false; return@LaunchedEffect
         }
         programResults = emptyList(); programLoading = true; programError = null
@@ -111,13 +116,18 @@ fun ProfileSetupScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onBackClick) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.back),
+                        tint = MaterialTheme.colorScheme.onBackground
+                    )
                 }
                 Text(
-                    "Akıllı profil",
+                    "Eğitim bilgilerin",
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground,
                     textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.size(48.dp))
@@ -138,56 +148,87 @@ fun ProfileSetupScreen(
                     .padding(horizontal = 22.dp, vertical = 22.dp)
             ) {
                 // Step label
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Text(
-                        "1 / 3 • EĞİTİM BİLGİLERİN",
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                Text(
+                    "1 / 3 • EĞİTİM PROFİLİ",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
                 Spacer(modifier = Modifier.height(14.dp))
                 Text(
-                    "Seni doğru verilerle tanıyalım",
+                    "Eğitim yolunu seç",
                     style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.ExtraBold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    "Üniversiteni ve ÖSYM'de kayıtlı programını seç. Migo kalan analizi AI ile hazırlayacak.",
+                    "Üniversiteni, ÖSYM programını ve sınıfını seç. Migo bölümünün branşlarını ve bu yıl için yol haritanı hazırlayacak.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(28.dp))
 
                 // ── Full name ─────────────────────────────────────────────────
-                OutlinedTextField(
-                    value = fullName,
-                    onValueChange = { fullName = it },
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.full_name)) },
-                    placeholder = { Text(stringResource(R.string.full_name_hint)) },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp)
-                )
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    TextField(
+                        value = fullName,
+                        onValueChange = { fullName = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.full_name)) },
+                        placeholder = { Text(stringResource(R.string.full_name_hint)) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Rounded.PersonOutline,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(6.dp),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent
+                        )
+                    )
+                }
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // ── University search ─────────────────────────────────────────
                 EducationSearchField(
                     value = university,
-                    onValueChange = { university = it; universityId = ""; universityError = null },
+                    onValueChange = {
+                        university = it
+                        universityId = ""
+                        department = ""
+                        programId = ""
+                        scoreType = ""
+                        universityError = null
+                    },
+                    step = "01",
                     label = "Üniversite",
-                    placeholder = "Örn. İstanbul, Boğaziçi…",
+                    placeholder = "Üniversite adıyla ara",
+                    icon = Icons.Rounded.AccountBalance,
                     results = universityResults,
                     isLoading = universityLoading,
                     errorMessage = universityError,
                     selected = universityId.isNotBlank(),
+                    enabled = true,
                     onOptionSelected = { option ->
-                        university = option.name; universityId = option.id; universityResults = emptyList()
+                        university = option.name
+                        universityId = option.id
+                        department = ""
+                        programId = ""
+                        scoreType = ""
+                        universityResults = emptyList()
                     }
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -196,12 +237,15 @@ fun ProfileSetupScreen(
                 EducationSearchField(
                     value = department,
                     onValueChange = { department = it; programId = ""; scoreType = ""; programError = null },
+                    step = "02",
                     label = "Bölüm / program",
-                    placeholder = "Örn. bilgisa, psikoloji, hukuk…",
+                    placeholder = if (universityId.isBlank()) "Önce üniversiteni seç" else "Bölüm adıyla ara",
+                    icon = Icons.AutoMirrored.Rounded.MenuBook,
                     results = programResults,
                     isLoading = programLoading,
                     errorMessage = programError,
                     selected = programId.isNotBlank(),
+                    enabled = universityId.isNotBlank(),
                     onOptionSelected = { option ->
                         department = option.name; programId = option.id; scoreType = option.meta; programResults = emptyList()
                     }
@@ -209,14 +253,33 @@ fun ProfileSetupScreen(
 
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    "Veri kaynağı: YÖK Atlas • Lisans ve önlisans programları",
+                    "YÖK Atlas kataloğu • Lisans ve önlisans programları",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // ── Class level ───────────────────────────────────────────────
-                Text("Sınıfın", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Sınıfın",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                if (universityId.isNotBlank() && programId.isNotBlank() && selectedClass.isBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            "Son adım: Yol haritanı sınıf seviyene göre hazırlayabilmemiz için sınıfını seç.",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(10.dp))
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
@@ -231,13 +294,12 @@ fun ProfileSetupScreen(
                             onClick = { selectedClass = option },
                             color = if (isSelected) MaterialTheme.colorScheme.primary
                                     else MaterialTheme.colorScheme.surface,
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(4.dp),
                             border = BorderStroke(
                                 1.dp,
                                 if (isSelected) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.outlineVariant
-                            ),
-                            shadowElevation = if (isSelected) 0.dp else 1.dp
+                            )
                         ) {
                             Text(
                                 label,
@@ -271,35 +333,27 @@ fun ProfileSetupScreen(
                     },
                     enabled = isFormValid,
                     modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(4.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Transparent,
-                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
-                    ),
-                    contentPadding = PaddingValues(0.dp)
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(
-                                if (isFormValid) Modifier.background(
-                                    Brush.linearGradient(listOf(GradientHeroMid, GradientHeroEnd))
-                                ) else Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            "AI analizini başlat",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isFormValid) Color.White
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        if (universityId.isNotBlank() && programId.isNotBlank() && selectedClass.isBlank()) {
+                            "Devam etmek için sınıfını seç"
+                        } else {
+                            "Program haritamı oluştur"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    "Listeden seçim yapman gerekir; böylece bölüm adı yanlış veya eksik kalmaz.",
+                    "Seçimler YÖK Atlas sonuçlarından doğrulanır. Yol haritan sınıf seviyene göre değişir.",
                     modifier = Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
@@ -315,97 +369,279 @@ fun ProfileSetupScreen(
 private fun EducationSearchField(
     value: String,
     onValueChange: (String) -> Unit,
+    step: String,
     label: String,
     placeholder: String,
+    icon: ImageVector,
     results: List<EducationOption>,
     isLoading: Boolean,
     errorMessage: String?,
     selected: Boolean,
+    enabled: Boolean,
     onOptionSelected: (EducationOption) -> Unit
 ) {
-    Column {
-        OutlinedTextField(
+    if (selected) {
+        SelectedEducationCard(
             value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text(label) },
-            placeholder = { Text(placeholder) },
-            singleLine = true,
-            shape = RoundedCornerShape(16.dp),
-            leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-            trailingIcon = {
-                when {
-                    isLoading -> CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    selected  -> Icon(
-                        Icons.Rounded.CheckCircle,
-                        contentDescription = "Seçildi",
-                        tint = MigoSuccess
+            step = step,
+            label = label,
+            icon = icon,
+            onEdit = { onValueChange("") }
+        )
+        return
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(6.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(21.dp)
                     )
                 }
-            },
-            supportingText = if (!selected && value.length in 1..1) {
-                { Text("Aramak için en az 2 harf yaz.") }
-            } else null
-        )
+                Spacer(modifier = Modifier.width(11.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "$step  •  ${label.uppercase(Locale.forLanguageTag("tr-TR"))}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        if (enabled) "Yazarak ara ve listeden seç" else "Önce ilk seçimi tamamla",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
-        if (errorMessage != null) {
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(errorMessage, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-        }
-
-        if (!selected && value.trim().length >= 2 && !isLoading && results.isEmpty() && errorMessage == null) {
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                "Eşleşme bulunamadı. Yazımı kontrol et veya daha kısa ara.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        AnimatedVisibility(
-            visible = results.isNotEmpty(),
-            enter = expandVertically() + fadeIn(),
-            exit  = shrinkVertically() + fadeOut()
-        ) {
-            Spacer(modifier = Modifier.height(6.dp))
-            Surface(
+            Spacer(modifier = Modifier.height(12.dp))
+            TextField(
+                value = value,
+                onValueChange = onValueChange,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                shadowElevation = 8.dp
+                enabled = enabled,
+                placeholder = { Text(placeholder) },
+                singleLine = true,
+                shape = RoundedCornerShape(6.dp),
+                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    }
+                },
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent
+                )
+            )
+
+            if (value.length == 1) {
+                Text(
+                    "Aramak için en az 2 harf yaz.",
+                    modifier = Modifier.padding(start = 6.dp, top = 7.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (errorMessage != null) {
+                Text(
+                    errorMessage,
+                    modifier = Modifier.padding(start = 6.dp, top = 7.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+            if (value.trim().length >= 2 && !isLoading && results.isEmpty() && errorMessage == null) {
+                Text(
+                    "Eşleşme bulunamadı. Daha kısa veya farklı bir ifade dene.",
+                    modifier = Modifier.padding(start = 6.dp, top = 7.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            AnimatedVisibility(
+                visible = results.isNotEmpty(),
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
             ) {
-                Column {
-                    results.forEachIndexed { index, option ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onOptionSelected(option) }
-                                .padding(horizontal = 16.dp, vertical = 13.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                Column(modifier = Modifier.padding(top = 8.dp)) {
+                    results.take(5).forEachIndexed { index, option ->
+                        Surface(
+                            onClick = { onOptionSelected(option) },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color.Transparent,
+                            shape = RoundedCornerShape(4.dp)
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    option.name,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                if (option.meta.isNotBlank()) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
                                     Text(
-                                        option.meta,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary
+                                        option.name.take(1).uppercase(Locale.forLanguageTag("tr-TR")),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold
                                     )
                                 }
+                                Spacer(modifier = Modifier.width(11.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(option.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                    if (option.meta.isNotBlank() && option.meta != "Üniversite") {
+                                        Text(
+                                            option.meta,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                Icon(
+                                    Icons.Rounded.ChevronRight,
+                                    contentDescription = "Seç",
+                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f),
+                                    modifier = Modifier.size(19.dp)
+                                )
                             }
-                            Icon(
-                                Icons.Rounded.CheckCircle,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                        }
+                        if (index < minOf(results.size, 5) - 1) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
                             )
                         }
-                        if (index < results.lastIndex) HorizontalDivider()
+                    }
+                    if (results.size > 5) {
+                        Text(
+                            "${results.size - 5} sonuç daha var • Aramanı netleştir",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectedEducationCard(
+    value: String,
+    step: String,
+    label: String,
+    icon: ImageVector,
+    onEdit: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(6.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(21.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(11.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "$step • ${label.uppercase(Locale.forLanguageTag("tr-TR"))}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "YÖK Atlas kaydı doğrulandı",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Surface(
+                    color = Color.Transparent,
+                    shape = RoundedCornerShape(4.dp),
+                    border = BorderStroke(1.dp, MigoSuccess.copy(alpha = 0.4f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Rounded.CheckCircle,
+                            contentDescription = null,
+                            tint = MigoSuccess,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            "Seçildi",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MigoSuccess,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(11.dp))
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(4.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(start = 13.dp, end = 5.dp, top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        value,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    TextButton(onClick = onEdit) {
+                        Icon(Icons.Rounded.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text("Değiştir")
                     }
                 }
             }

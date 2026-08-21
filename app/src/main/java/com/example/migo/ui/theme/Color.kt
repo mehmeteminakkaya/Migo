@@ -11,23 +11,28 @@ val MigoCyanSoft      = Color(0xFFD0FBF5)
 val MigoCoralAccent   = Color(0xFFFF6B6B)
 val MigoGold          = Color(0xFFFFB347)
 
-// ─── Light Surface System ─────────────────────────────────────────────────────
-val MigoLightBackground   = Color(0xFFF5F4FF)   // slight violet tint
+// ─── Light Surface System (warm paper — "Rota" identity) ──────────────────────
+val MigoLightBackground   = Color(0xFFF7F3EC)   // warm paper
 val MigoLightSurface      = Color(0xFFFFFFFF)
-val MigoLightSurfaceAlt   = Color(0xFFEEEDFF)
-val MigoLightOutline      = Color(0xFFD0CEEE)
-val MigoLightInk          = Color(0xFF12103D)
-val MigoLightMuted        = Color(0xFF6B6A8A)
+val MigoLightSurfaceAlt   = Color(0xFFEFE8DA)
+val MigoLightOutline      = Color(0xFFDCD3C2)
+val MigoLightInk          = Color(0xFF211D17)
+val MigoLightMuted        = Color(0xFF6E6558)
 
-val MigoVioletContainer   = Color(0xFFE8E7FF)   // light primary container
+val MigoVioletContainer   = Color(0xFFF1DCC3)   // light primary container (warm terracotta tint)
 
-// ─── Dark Surface System ──────────────────────────────────────────────────────
-val MigoDarkBg            = Color(0xFF0D0D1A)   // deep navy
-val MigoDarkSurface       = Color(0xFF16162A)
-val MigoDarkSurfaceAlt    = Color(0xFF1F1F38)
-val MigoDarkSurface3      = Color(0xFF282848)
-val MigoDarkOutline       = Color(0xFF3A3A5C)
-val MigoDarkMuted         = Color(0xFF9A99BB)
+// ─── Dark Surface System (warm ink) ────────────────────────────────────────────
+val MigoDarkBg            = Color(0xFF17130E)   // warm near-black
+val MigoDarkSurface       = Color(0xFF211C15)
+val MigoDarkSurfaceAlt    = Color(0xFF2B241A)
+val MigoDarkSurface3      = Color(0xFF362C1E)
+val MigoDarkOutline       = Color(0xFF453C2C)
+val MigoDarkMuted         = Color(0xFFA89C87)
+
+// ─── Accent — "Rota" (terracotta, replaces violet as the app's primary hue) ───
+val MigoAccent            = Color(0xFFB5651D)
+val MigoAccentDark        = Color(0xFFD9822B)   // brighter, for dark-mode primary
+val MigoAccentDeep        = Color(0xFF5C2F0A)
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 val MigoSuccess           = Color(0xFF00C48C)

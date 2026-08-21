@@ -84,8 +84,8 @@ fun CareerToolsScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
             .statusBarsPadding()
+            .verticalScroll(rememberScrollState())
             .imePadding()
             .padding(horizontal = 18.dp, vertical = 14.dp)
     ) {
@@ -95,7 +95,7 @@ fun CareerToolsScreen(
                 Text(
                     text  = "Kariyer Stüdyosu",
                     style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.ExtraBold
+                    fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(3.dp))
                 Text(
@@ -115,8 +115,9 @@ fun CareerToolsScreen(
                 fontWeight = FontWeight.Bold
             )
             Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                shape = RoundedCornerShape(12.dp)
+                color = Color.Transparent,
+                shape = RoundedCornerShape(4.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
@@ -126,26 +127,26 @@ fun CareerToolsScreen(
                         modifier = Modifier
                             .size(7.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.secondary)
+                            .background(MaterialTheme.colorScheme.primary)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Kullanıma hazır", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelSmall)
+                    Text("Kullanıma hazır", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
         Spacer(modifier = Modifier.height(10.dp))
-        Card(
+        Surface(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(22.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.78f))
+            color = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(6.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
                             .size(42.dp)
-                            .clip(RoundedCornerShape(13.dp))
+                            .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
@@ -166,17 +167,12 @@ fun CareerToolsScreen(
                             maxLines = 1
                         )
                     }
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(9.dp)
-                    ) {
-                        Text(
-                            "AI",
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
+                    Text(
+                        "AI",
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
@@ -191,7 +187,7 @@ fun CareerToolsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
-                    shape = RoundedCornerShape(15.dp)
+                    shape = RoundedCornerShape(4.dp)
                 ) {
                     if (isReadingPdf) {
                         CircularProgressIndicator(
@@ -210,8 +206,8 @@ fun CareerToolsScreen(
                     Spacer(modifier = Modifier.height(9.dp))
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f),
-                        shape = RoundedCornerShape(13.dp)
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(4.dp)
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -221,14 +217,14 @@ fun CareerToolsScreen(
                                 Icons.Rounded.PictureAsPdf,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.secondary
+                                tint = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 selectedFile,
                                 modifier = Modifier.weight(1f),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
                     }
@@ -251,7 +247,7 @@ fun CareerToolsScreen(
                     minLines = 5,
                     maxLines = 10,
                     enabled = !isAnalyzing && !isReadingPdf,
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(8.dp)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -276,7 +272,7 @@ fun CareerToolsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp),
-                    shape = RoundedCornerShape(15.dp)
+                    shape = RoundedCornerShape(4.dp)
                 ) {
                     if (isAnalyzing) {
                         CircularProgressIndicator(
@@ -297,11 +293,9 @@ fun CareerToolsScreen(
 
         errorMessage?.let { message ->
             Spacer(modifier = Modifier.height(14.dp))
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                ),
-                shape = RoundedCornerShape(18.dp)
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+                shape = RoundedCornerShape(6.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
@@ -363,39 +357,40 @@ fun CareerToolsScreen(
 
 @Composable
 private fun PlusCard(onClick: () -> Unit) {
-    val gradient = Brush.linearGradient(listOf(Color(0xFF25215F), Color(0xFF4F46E5)))
-    Card(onClick = onClick, shape = RoundedCornerShape(20.dp)) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.primary,
+        shape = RoundedCornerShape(4.dp)
+    ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(gradient)
-                .padding(16.dp),
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .clip(RoundedCornerShape(13.dp))
-                    .background(Color.White.copy(alpha = 0.16f)),
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.16f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = Color.White)
+                Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
             }
             Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     "Migo Plus",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onPrimary,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
                     "Tüm AI araçlarını tek pakette aç",
-                    color = Color.White.copy(alpha = 0.72f),
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.72f),
                     style = MaterialTheme.typography.bodySmall
                 )
             }
-            Text("Yakında", color = Color.White, style = MaterialTheme.typography.labelMedium)
+            Text("Yakında", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelMedium)
         }
     }
 }
@@ -403,12 +398,10 @@ private fun PlusCard(onClick: () -> Unit) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AiCvResultCard(result: CvAnalysis) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(6.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -465,14 +458,13 @@ private fun AiCvResultCard(result: CvAnalysis) {
                 Text("Daha güçlü ifade örnekleri", fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
                 result.rewrittenBullets.forEachIndexed { index, bullet ->
-                    Card(
+                    Surface(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 8.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)
-                        ),
-                        shape = RoundedCornerShape(16.dp)
+                        color = Color.Transparent,
+                        shape = RoundedCornerShape(4.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         Row(
                             modifier = Modifier.padding(14.dp),
@@ -482,13 +474,13 @@ private fun AiCvResultCard(result: CvAnalysis) {
                                 modifier = Modifier
                                     .size(28.dp)
                                     .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.secondaryContainer),
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     (index + 1).toString(),
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                             }
                             Spacer(modifier = Modifier.width(10.dp))
@@ -531,18 +523,16 @@ private fun AnalysisList(title: String, items: List<String>) {
 
 @Composable
 private fun LockedToolCard(icon: ImageVector, title: String, description: String) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f))
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(6.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {

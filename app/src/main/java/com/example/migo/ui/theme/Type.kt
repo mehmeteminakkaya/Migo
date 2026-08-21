@@ -17,15 +17,17 @@ private val provider = GoogleFont.Provider(
     certificates = R.array.com_google_android_gms_fonts_certs
 )
 
-private val OutfitFont = GoogleFont("Outfit")
-private val InterFont  = GoogleFont("Inter")
+// "Rota" identity: Space Grotesk / IBM Plex Sans replace Outfit / Inter app-wide.
+// Kept the old val names (MigoOutfit/MigoInter) so every screen that already
+// references them by name picks up the new faces without a rename pass.
+private val OutfitFont = GoogleFont("Space Grotesk")
+private val InterFont  = GoogleFont("IBM Plex Sans")
 
 val MigoOutfit = FontFamily(
     Font(googleFont = OutfitFont, fontProvider = provider, weight = FontWeight.Normal),
     Font(googleFont = OutfitFont, fontProvider = provider, weight = FontWeight.Medium),
     Font(googleFont = OutfitFont, fontProvider = provider, weight = FontWeight.SemiBold),
     Font(googleFont = OutfitFont, fontProvider = provider, weight = FontWeight.Bold),
-    Font(googleFont = OutfitFont, fontProvider = provider, weight = FontWeight.ExtraBold),
 )
 
 val MigoInter = FontFamily(
