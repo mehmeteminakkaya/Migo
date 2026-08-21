@@ -5,7 +5,7 @@
   "compatibility_date": "2026-07-20",
   "compatibility_flags": ["nodejs_compat"],
   "secrets": {
-    "required": ["NVIDIA_API_KEY"]
+    "required": ["NVIDIA_API_KEY", "INSTALLATION_TOKEN_SECRET"]
   },
   "d1_databases": [
     {
@@ -28,7 +28,7 @@
       "name": "NETWORK_AI_RATE_LIMITER",
       "namespace_id": "41002",
       "simple": {
-        "limit": 30,
+        "limit": 15,
         "period": 60
       }
     },

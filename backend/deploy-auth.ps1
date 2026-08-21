@@ -41,6 +41,17 @@ try {
     if (($secretOutput -join "`n") -notmatch '"name"\s*:\s*"NVIDIA_API_KEY"') {
         throw "Bu Worker icin NVIDIA_API_KEY secret'i eksik."
     }
+    if (($secretOutput -join "`n") -notmatch '"name"\s*:\s*"INSTALLATION_TOKEN_SECRET"') {
+        Write-Host "INSTALLATION_TOKEN_SECRET eksik, rastgele bir deger uretilip ayarlaniyor." -ForegroundColor Cyan
+        $randomBytes = [byte[]]::new(32)
+        [System.Security.Cryptography.RandomNumberGenerator]::Fill($randomBytes)
+        $randomSecret = [Convert]::ToBase64String($randomBytes)
+        $randomSecret | & "$PSScriptRoot\cloudflare.cmd" secret put INSTALLATION_TOKEN_SECRET
+        if ($LASTEXITCODE -ne 0) {
+            throw "INSTALLATION_TOKEN_SECRET secret'i ayarlanamadi."
+        }
+        $randomSecret = $null
+    }
 
     $propertiesPath = Join-Path $PSScriptRoot "..\local.properties"
     $backendUrl = [regex]::Match(

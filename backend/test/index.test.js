@@ -7,6 +7,17 @@ const syncSecret = "abcdefghijklmnopqrstuvwxyzABCDEFGH1234567890_-";
 const allowLimiter = { limit: async () => ({ success: true }) };
 const denyLimiter = { limit: async () => ({ success: false }) };
 
+function spyLimiter() {
+  const calls = [];
+  return {
+    calls,
+    limit: async ({ key }) => {
+      calls.push(key);
+      return { success: true };
+    }
+  };
+}
+
 if (!globalThis.crypto.subtle.timingSafeEqual) {
   globalThis.crypto.subtle.timingSafeEqual = (left, right) => {
     const a = new Uint8Array(left.buffer || left, left.byteOffset || 0, left.byteLength);
@@ -81,6 +92,7 @@ function createMemoryDb() {
 function env(overrides = {}) {
   return {
     NVIDIA_API_KEY: "test-key",
+    INSTALLATION_TOKEN_SECRET: "test-installation-token-secret",
     CLIENT_AI_RATE_LIMITER: allowLimiter,
     NETWORK_AI_RATE_LIMITER: allowLimiter,
     SYNC_RATE_LIMITER: allowLimiter,
@@ -175,6 +187,117 @@ test("rate limits fail closed with retry guidance", async () => {
   assert.equal(response.headers.get("retry-after"), "60");
 });
 
+test("a signed installation token pins the AI rate-limit identity even if the client-chosen id is rotated", async () => {
+  const clientLimiter = spyLimiter();
+  const environment = env({ CLIENT_AI_RATE_LIMITER: clientLimiter });
+
+  const first = await worker.fetch(post("/v1/coach", "{}"), environment, {});
+  assert.equal(first.status, 400); // empty question short-circuits before any provider call
+  const issuedToken = first.headers.get("x-migo-installation-token");
+  assert.ok(issuedToken, "worker should mint and return a signed installation token");
+  assert.equal(clientLimiter.calls.length, 1);
+  const firstSubject = clientLimiter.calls[0].split(":")[0];
+
+  const second = await worker.fetch(
+    post("/v1/coach", "{}", {
+      "x-migo-installation": "rotated_installation_9876543210",
+      "x-migo-installation-token": issuedToken
+    }),
+    environment,
+    {}
+  );
+  assert.equal(second.status, 400);
+  assert.equal(clientLimiter.calls.length, 2);
+  const secondSubject = clientLimiter.calls[1].split(":")[0];
+
+  assert.equal(
+    secondSubject,
+    firstSubject,
+    "presenting the previously-issued token must reuse the same rate-limit subject even though x-migo-installation changed"
+  );
+  assert.equal(second.headers.get("x-migo-installation-token"), issuedToken);
+});
+
+test("omitting the token every request still yields a fresh rate-limit subject (network-IP limiter is the backstop)", async () => {
+  const clientLimiter = spyLimiter();
+  const environment = env({ CLIENT_AI_RATE_LIMITER: clientLimiter });
+
+  await worker.fetch(post("/v1/coach", "{}"), environment, {});
+  await worker.fetch(
+    post("/v1/coach", "{}", { "x-migo-installation": "another_random_id_0000000000" }),
+    environment,
+    {}
+  );
+
+  const firstSubject = clientLimiter.calls[0].split(":")[0];
+  const secondSubject = clientLimiter.calls[1].split(":")[0];
+  assert.notEqual(
+    firstSubject,
+    secondSubject,
+    "without a signed token the server cannot tell this is the same install, by design -- the per-IP limiter is what bounds this"
+  );
+});
+
+test("a forged or tampered installation token is rejected and a fresh one is minted", async () => {
+  const first = await worker.fetch(post("/v1/coach", "{}"), env(), {});
+  const issuedToken = first.headers.get("x-migo-installation-token");
+  const [subject, issuedAt] = issuedToken.split(".");
+  const forged = `${subject}.${issuedAt}.not-a-real-signature`;
+
+  const response = await worker.fetch(
+    post("/v1/coach", "{}", { "x-migo-installation-token": forged }),
+    env(),
+    {}
+  );
+
+  assert.equal(response.status, 400);
+  const refreshedToken = response.headers.get("x-migo-installation-token");
+  assert.ok(refreshedToken);
+  assert.notEqual(refreshedToken, forged, "a tampered token must not be honored");
+});
+
+test("AI rate limiting fails closed when the installation-token signing secret is missing", async () => {
+  const response = await worker.fetch(
+    post("/v1/coach", "{}"),
+    env({ INSTALLATION_TOKEN_SECRET: undefined }),
+    {}
+  );
+  assert.equal(response.status, 503);
+});
+
+test("unexpected backend errors (e.g. a raw DB failure) return a generic message instead of the driver string", async () => {
+  const brokenDb = {
+    prepare() {
+      return {
+        bind() {
+          return this;
+        },
+        async first() {
+          throw new Error("D1_ERROR: no such table: user_vaults: SQLITE_ERROR");
+        },
+        async run() {
+          throw new Error("D1_ERROR: no such table: user_vaults: SQLITE_ERROR");
+        }
+      };
+    }
+  };
+
+  const response = await worker.fetch(syncRequest("GET"), env({ DB: brokenDb }), {});
+  const payload = await response.json();
+
+  assert.equal(response.status, 500);
+  assert.equal(payload.error, "Beklenmeyen bir hata oluştu.");
+  assert.doesNotMatch(payload.error, /SQLITE|D1_ERROR|no such table/);
+});
+
+test("known, expected error cases still return their specific Turkish message", async () => {
+  const oversized = await worker.fetch(post("/v1/coach", "x".repeat(50_001)), env(), {});
+  const payload = await oversized.json();
+
+  assert.equal(oversized.status, 413);
+  assert.equal(payload.error, "İstek çok büyük.");
+});
+
 test("cloud vault creates, reads, updates and deletes a session", async () => {
   const database = createMemoryDb();
   const environment = env({ DB: database });
@@ -220,6 +343,209 @@ test("cloud vault rejects a different secret and enforces its own quota", async 
   assert.equal(forbidden.status, 403);
   assert.equal(limited.status, 429);
   assert.equal(limited.headers.get("retry-after"), "60");
+});
+
+test("career-detail, action-plan and daily-insight reject requests missing required fields", async () => {
+  const missingBranch = await worker.fetch(
+    post("/v1/career-detail", JSON.stringify({ profile: { university: "ITU", department: "CS" } })),
+    env(),
+    {}
+  );
+  const missingTargetForPlan = await worker.fetch(post("/v1/action-plan", "{}"), env(), {});
+  const missingTargetForInsight = await worker.fetch(post("/v1/daily-insight", "{}"), env(), {});
+
+  assert.equal(missingBranch.status, 400);
+  assert.equal(missingTargetForPlan.status, 400);
+  assert.equal(missingTargetForInsight.status, 400);
+});
+
+function withMockedNvidiaResponse(payload, run) {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(
+    JSON.stringify({ choices: [{ message: { content: JSON.stringify(payload) } }] }),
+    { status: 200, headers: { "content-type": "application/json" } }
+  );
+  return run().finally(() => {
+    globalThis.fetch = originalFetch;
+  });
+}
+
+test("career-detail normalizes a well-formed AI response into the shape the app expects", async () => {
+  await withMockedNvidiaResponse(
+    {
+      title: "Mobil Uygulama Geliştirme",
+      overview: "Android ve iOS ürünlerinin geliştirme sürecine odaklanır.",
+      roles: ["Android Developer", "iOS Developer", "Mobile Engineer"],
+      requirements: ["Kotlin", "Mobil mimari", "Git", "Portföy"]
+    },
+    async () => {
+      const response = await worker.fetch(
+        post("/v1/career-detail", JSON.stringify({
+          profile: { university: "ITU", department: "Bilgisayar Mühendisliği" },
+          branch: { title: "Mobil Uygulama Geliştirme", reason: "İlgi alanına uygun." }
+        })),
+        env(),
+        {}
+      );
+      const payload = await response.json();
+
+      assert.equal(response.status, 200);
+      assert.equal(payload.title, "Mobil Uygulama Geliştirme");
+      assert.equal(payload.roles.length, 3);
+      assert.equal(payload.requirements.length, 4);
+    }
+  );
+});
+
+test("career-detail rejects an incomplete AI response instead of forwarding it", async () => {
+  await withMockedNvidiaResponse(
+    { title: "X", overview: "", roles: [], requirements: [] },
+    async () => {
+      const response = await worker.fetch(
+        post("/v1/career-detail", JSON.stringify({
+          profile: { university: "ITU", department: "Bilgisayar Mühendisliği" },
+          branch: { title: "Mobil Uygulama Geliştirme", reason: "" }
+        })),
+        env(),
+        {}
+      );
+      assert.equal(response.status, 502);
+    }
+  );
+});
+
+test("action-plan normalizes exactly 4 weeks of 4 actions each and assigns stable ids", async () => {
+  const week = {
+    title: "Hafta",
+    focus: "Odak",
+    outcome: "Sonuç",
+    actions: Array.from({ length: 4 }, (_, index) => ({
+      title: `Görev ${index + 1}`,
+      description: "Açıklama",
+      duration_minutes: 45,
+      deliverable: "Kanıt"
+    }))
+  };
+  await withMockedNvidiaResponse(
+    {
+      title: "30 Günlük Rota",
+      objective: "Hedefe ulaş.",
+      weeks: [week, week, week, week]
+    },
+    async () => {
+      const response = await worker.fetch(
+        post("/v1/action-plan", JSON.stringify({
+          targetCareer: "Android Geliştirici",
+          profile: { university: "ITU", department: "Bilgisayar Mühendisliği" }
+        })),
+        env(),
+        {}
+      );
+      const payload = await response.json();
+
+      assert.equal(response.status, 200);
+      assert.equal(payload.weeks.length, 4);
+      assert.ok(payload.weeks.every((w) => w.actions.length === 4));
+      assert.equal(payload.weeks[0].actions[0].id, "w1_a1");
+      assert.equal(payload.weeks[1].actions[2].id, "w2_a3");
+    }
+  );
+});
+
+test("action-plan rejects an AI response with fewer than 4 weeks", async () => {
+  await withMockedNvidiaResponse(
+    { title: "Plan", objective: "Hedef", weeks: [{ actions: [] }] },
+    async () => {
+      const response = await worker.fetch(
+        post("/v1/action-plan", JSON.stringify({ targetCareer: "Android Geliştirici" })),
+        env(),
+        {}
+      );
+      assert.equal(response.status, 502);
+    }
+  );
+});
+
+function withCapturedNvidiaRequest(payload, run) {
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (url, init) => {
+    requests.push(JSON.parse(init.body));
+    return new Response(
+      JSON.stringify({ choices: [{ message: { content: JSON.stringify(payload) } }] }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  };
+  return run(requests).finally(() => {
+    globalThis.fetch = originalFetch;
+  });
+}
+
+test("action-plan folds the client-supplied aiRules into the system prompt sent upstream", async () => {
+  const week = {
+    title: "Hafta", focus: "Odak", outcome: "Sonuç",
+    actions: Array.from({ length: 4 }, (_, i) => ({ title: `Görev ${i + 1}`, duration_minutes: 30 }))
+  };
+  await withCapturedNvidiaRequest(
+    { title: "Plan", objective: "Hedef", weeks: [week, week, week, week] },
+    async (requests) => {
+      const response = await worker.fetch(
+        post("/v1/action-plan", JSON.stringify({
+          targetCareer: "Android Geliştirici",
+          aiRules: "GitHub hesabı açmak tek başına haftalık çıktı olamaz."
+        })),
+        env(),
+        {}
+      );
+      assert.equal(response.status, 200);
+      const systemMessage = requests[0].messages.find((m) => m.role === "system").content;
+      assert.match(systemMessage, /GitHub hesabı açmak tek başına haftalık çıktı olamaz\./);
+    }
+  );
+});
+
+test("daily-insight ignores aiRules — the sprint ruleset doesn't fit a one-line nudge", async () => {
+  await withCapturedNvidiaRequest(
+    { title: "T", message: "M", action_label: "A" },
+    async (requests) => {
+      await worker.fetch(
+        post("/v1/daily-insight", JSON.stringify({
+          targetCareer: "Android Geliştirici",
+          aiRules: "Bu metin günlük içgörüde görünmemeli."
+        })),
+        env(),
+        {}
+      );
+      const systemMessage = requests[0].messages.find((m) => m.role === "system").content;
+      assert.doesNotMatch(systemMessage, /Bu metin günlük içgörüde görünmemeli\./);
+    }
+  );
+});
+
+test("daily-insight echoes the requested date key and normalizes the AI response", async () => {
+  await withMockedNvidiaResponse(
+    {
+      title: "Kanıt üretme günü",
+      message: "Bugün küçük bir adım at.",
+      action_label: "Ana ekranın demosunu kaydet",
+      coach_prompt: "Bunu üç adıma böl."
+    },
+    async () => {
+      const response = await worker.fetch(
+        post("/v1/daily-insight", JSON.stringify({
+          targetCareer: "Android Geliştirici",
+          dateKey: "2026-08-21"
+        })),
+        env(),
+        {}
+      );
+      const payload = await response.json();
+
+      assert.equal(response.status, 200);
+      assert.equal(payload.date_key, "2026-08-21");
+      assert.equal(payload.title, "Kanıt üretme günü");
+    }
+  );
 });
 
 test("scheduled retention deletes expired anonymous vaults", async () => {
