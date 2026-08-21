@@ -1,11 +1,18 @@
 package com.example.migo.data.remote
 
+import android.content.Context
 import com.example.migo.BuildConfig
+import com.example.migo.data.model.AiContentSanitizer
 import com.example.migo.data.model.CareerAnalysis
+import com.example.migo.data.model.CareerActionPlan
+import com.example.migo.data.model.CareerPlanAction
+import com.example.migo.data.model.CareerPlanWeek
 import com.example.migo.data.model.CareerRecommendation
+import com.example.migo.data.model.CareerRoadmapStep
 import com.example.migo.data.model.CareerSession
 import com.example.migo.data.model.CoachMessage
 import com.example.migo.data.model.CvAnalysis
+import com.example.migo.data.model.DailyCareerInsight
 import com.example.migo.data.model.SmartProfileResult
 import com.example.migo.data.model.UserProfile
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +25,13 @@ import java.net.SocketTimeoutException
 import java.net.URL
 
 object NvidiaCareerService {
+    @Volatile
+    private var aiCoachRules: String = ""
+
+    fun initialize(context: Context) {
+        aiCoachRules = AiCoachRules.load(context)
+    }
+
     suspend fun createSmartProfile(profile: UserProfile): Result<SmartProfileResult> =
         withContext(Dispatchers.IO) {
             if (BuildConfig.MIGO_BACKEND_URL.isBlank()) {
@@ -58,6 +72,34 @@ object NvidiaCareerService {
         runCatching { requestBackendCvAnalysis(session, cvText) }
     }
 
+    suspend fun enrichCareer(
+        profile: UserProfile,
+        branch: CareerRecommendation
+    ): Result<CareerRecommendation> = withContext(Dispatchers.IO) {
+        if (BuildConfig.MIGO_BACKEND_URL.isBlank()) {
+            return@withContext missingBackend()
+        }
+        runCatching { requestBackendCareerDetail(profile, branch) }
+    }
+
+    suspend fun createActionPlan(session: CareerSession): Result<CareerActionPlan> =
+        withContext(Dispatchers.IO) {
+            if (BuildConfig.MIGO_BACKEND_URL.isBlank()) {
+                return@withContext Result.success(fallbackActionPlan(session))
+            }
+            runCatching { requestBackendActionPlan(session) }
+        }
+
+    suspend fun createDailyInsight(
+        session: CareerSession,
+        dateKey: String
+    ): Result<DailyCareerInsight> = withContext(Dispatchers.IO) {
+        if (BuildConfig.MIGO_BACKEND_URL.isBlank()) {
+            return@withContext Result.success(fallbackDailyInsight(session, dateKey))
+        }
+        runCatching { requestBackendDailyInsight(session, dateKey) }
+    }
+
     private fun requestBackendAnalysis(
         profile: UserProfile,
         interests: List<String>,
@@ -70,6 +112,78 @@ object NvidiaCareerService {
         return parseAnalysis(
             executeBackendRequest("/v1/career-analysis", payload, 65_000)
         )
+    }
+
+    private fun requestBackendCareerDetail(
+        profile: UserProfile,
+        branch: CareerRecommendation
+    ): CareerRecommendation {
+        val payload = JSONObject()
+            .put("profile", profile.toJson())
+            .put(
+                "branch",
+                JSONObject()
+                    .put("title", branch.title)
+                    .put("reason", branch.reason)
+            )
+        val response = try {
+            executeBackendRequest("/v1/career-detail", payload, 65_000)
+        } catch (error: IOException) {
+            if (error.isMissingEndpoint()) {
+                throw IOException("Canlı branş ayrıntısı henüz etkin değil.")
+            }
+            throw error
+        }
+        return parseCareerDetail(response, branch)
+    }
+
+    private fun requestBackendActionPlan(session: CareerSession): CareerActionPlan {
+        val branch = session.analysis.careers.firstOrNull { it.title == session.targetCareer }
+        val payload = JSONObject()
+            .put("profile", session.profile.toJson())
+            .put("targetCareer", session.targetCareer)
+            .put(
+                "branch",
+                JSONObject()
+                    .put("reason", branch?.reason.orEmpty())
+                    .put("requirements", JSONArray(branch?.requirements.orEmpty()))
+            )
+            .put(
+                "completedTasks",
+                JSONArray(
+                    session.tasks.filter { it.id in session.completedTaskIds }.map { it.title }
+                )
+            )
+        val response = try {
+            executeBackendRequest("/v1/action-plan", payload, 65_000)
+        } catch (error: IOException) {
+            if (error.isMissingEndpoint()) return fallbackActionPlan(session)
+            throw error
+        }
+        return parseJsonObject(response).toCareerActionPlan()
+    }
+
+    private fun requestBackendDailyInsight(
+        session: CareerSession,
+        dateKey: String
+    ): DailyCareerInsight {
+        val taskList = session.tasks
+        val completed = session.completedTaskIds
+        val nextTask = taskList.firstOrNull { it.id !in completed }?.title.orEmpty()
+        val completion = if (taskList.isEmpty()) 0 else completed.size * 100 / taskList.size
+        val payload = JSONObject()
+            .put("profile", session.profile.toJson())
+            .put("targetCareer", session.targetCareer)
+            .put("dateKey", dateKey)
+            .put("nextTask", nextTask)
+            .put("completionPercent", completion)
+        val response = try {
+            executeBackendRequest("/v1/daily-insight", payload, 45_000)
+        } catch (error: IOException) {
+            if (error.isMissingEndpoint()) return fallbackDailyInsight(session, dateKey)
+            throw error
+        }
+        return JSONObject(response).toDailyCareerInsight(dateKey)
     }
 
     private fun requestBackendSmartProfile(profile: UserProfile): SmartProfileResult {
@@ -189,7 +303,7 @@ object NvidiaCareerService {
         return parseJsonObject(answer)
     }
 
-    private fun JSONObject.toCvAnalysis(): CvAnalysis = CvAnalysis(
+    internal fun JSONObject.toCvAnalysis(): CvAnalysis = CvAnalysis(
         score = optInt("score", 0).coerceIn(0, 100),
         summary = optString("summary"),
         strengths = optJSONArray("strengths")?.toStringList().orEmpty(),
@@ -203,6 +317,160 @@ object NvidiaCareerService {
             )
         }
     }
+
+    internal fun parseCareerDetail(
+        rawOutput: String,
+        fallback: CareerRecommendation
+    ): CareerRecommendation {
+        val json = parseJsonObject(rawOutput)
+        return CareerRecommendation(
+            title = AiContentSanitizer.inline(
+                json.optString("title").ifBlank { fallback.title },
+                120
+            ),
+            reason = AiContentSanitizer.inline(
+                json.optString("overview").ifBlank { fallback.reason },
+                500
+            ),
+            roles = json.optJSONArray("roles")?.toStringList().orEmpty().ifEmpty { fallback.roles },
+            workAreas = json.optJSONArray("work_areas")?.toStringList().orEmpty().ifEmpty { fallback.workAreas },
+            exampleEmployers = json.optJSONArray("example_employers")?.toStringList().orEmpty().ifEmpty { fallback.exampleEmployers },
+            salaryRange = json.optString("salary_range").ifBlank { fallback.salaryRange },
+            salaryNote = json.optString("salary_note").ifBlank { fallback.salaryNote },
+            salarySourceName = json.optString("salary_source_name").ifBlank { fallback.salarySourceName },
+            salarySourceUrl = json.optString("salary_source_url").ifBlank { fallback.salarySourceUrl },
+            salarySourceDate = json.optString("salary_source_date").ifBlank { fallback.salarySourceDate },
+            salaryDataType = json.optString("salary_data_type").ifBlank { fallback.salaryDataType },
+            hiringOutlook = json.optString("hiring_outlook").ifBlank { fallback.hiringOutlook },
+            demandNote = json.optString("demand_note").ifBlank { fallback.demandNote },
+            requirements = json.optJSONArray("requirements")?.toStringList().orEmpty().ifEmpty { fallback.requirements },
+            dailyWork = json.optJSONArray("daily_work")?.toStringList().orEmpty().ifEmpty { fallback.dailyWork },
+            first90Days = json.optJSONArray("first_90_days")?.toStringList().orEmpty().ifEmpty { fallback.first90Days }
+        ).also { detail ->
+            if (detail.reason.isBlank() || detail.roles.size < 2 || detail.requirements.size < 2) {
+                throw IOException("Migo AI branş detayını eksik oluşturdu. Lütfen tekrar dene.")
+            }
+        }
+    }
+
+    internal fun JSONObject.toCareerActionPlan(): CareerActionPlan = CareerActionPlan(
+            title = AiContentSanitizer.inline(optString("title"), 160),
+            objective = AiContentSanitizer.inline(optString("objective"), 420),
+        durationDays = optInt("duration_days", 30),
+        weeks = optJSONArray("weeks")?.toObjectList { week ->
+            CareerPlanWeek(
+                number = week.optInt("number", 1),
+                title = AiContentSanitizer.inline(week.optString("title"), 120),
+                focus = AiContentSanitizer.inline(week.optString("focus"), 240),
+                outcome = AiContentSanitizer.inline(week.optString("outcome"), 220),
+                actions = week.optJSONArray("actions")?.toObjectList { action ->
+                    CareerPlanAction(
+                        id = action.optString("id"),
+                        title = AiContentSanitizer.taskText(action.optString("title")).title,
+                        description = AiContentSanitizer.inline(
+                            action.optString("description"),
+                            320
+                        ),
+                        durationMinutes = action.optInt("duration_minutes", 30),
+                        deliverable = AiContentSanitizer.inline(
+                            action.optString("deliverable"),
+                            180
+                        )
+                    )
+                }.orEmpty()
+            )
+        }.orEmpty()
+    ).also { plan ->
+        if (plan.title.isBlank() || plan.objective.isBlank() || plan.weeks.size != 4 ||
+            plan.weeks.any { it.actions.size < 4 }
+        ) {
+            throw IOException("Migo AI 30 günlük planı eksik oluşturdu. Lütfen tekrar dene.")
+        }
+    }
+
+    internal fun JSONObject.toDailyCareerInsight(dateKey: String): DailyCareerInsight =
+        DailyCareerInsight(
+            dateKey = optString("date_key").ifBlank { dateKey },
+            title = AiContentSanitizer.inline(optString("title"), 80),
+            message = AiContentSanitizer.inline(optString("message"), 320),
+            actionLabel = AiContentSanitizer.taskText(optString("action_label")).title,
+            coachPrompt = AiContentSanitizer.inline(optString("coach_prompt"), 280)
+        ).also { insight ->
+            if (insight.title.isBlank() || insight.message.isBlank() || insight.actionLabel.isBlank()) {
+                throw IOException("Migo AI bugünün içgörüsünü oluşturamadı.")
+            }
+        }
+
+    private fun fallbackActionPlan(session: CareerSession): CareerActionPlan {
+        val baseTasks = session.tasks.ifEmpty {
+            listOf(
+                com.example.migo.data.model.CareerTask("discover", "Alanındaki üç rolü karşılaştır", "Keşif", 30),
+                com.example.migo.data.model.CareerTask("practice", "Küçük bir uygulama çıktısı üret", "Uygulama", 60),
+                com.example.migo.data.model.CareerTask("market", "Üç güncel ilanı incele", "Araştırma", 30),
+                com.example.migo.data.model.CareerTask("profile", "CV veya portföyünü güncelle", "Profil", 40)
+            )
+        }
+        val weekTitles = listOf("Yönünü netleştir", "Temeli uygula", "Kanıt üret", "Görünür ol")
+        val weeks = weekTitles.mapIndexed { weekIndex, title ->
+            val primary = baseTasks[weekIndex % baseTasks.size]
+            CareerPlanWeek(
+                number = weekIndex + 1,
+                title = title,
+                focus = "${session.targetCareer} hedefinde ${primary.category.lowercase()} odağı",
+                outcome = "Hafta sonunda paylaşılabilir bir kariyer kanıtı oluştur.",
+                actions = listOf(
+                    CareerPlanAction(
+                        id = "plan_w${weekIndex + 1}_a1",
+                        title = primary.title,
+                        description = "Görevi tek oturumda tamamlanabilecek küçük bir parçaya böl.",
+                        durationMinutes = primary.durationMinutes.coerceIn(15, 120),
+                        deliverable = "Tamamlandığını gösteren kısa not veya bağlantı"
+                    ),
+                    CareerPlanAction(
+                        id = "plan_w${weekIndex + 1}_a2",
+                        title = "Çıktını değerlendir ve geliştir",
+                        description = "Bir kontrol listesiyle eksikleri bul ve tek bir iyileştirme yap.",
+                        durationMinutes = 30,
+                        deliverable = "Önce/sonra notu"
+                    ),
+                    CareerPlanAction(
+                        id = "plan_w${weekIndex + 1}_a3",
+                        title = "Haftanın kanıtını kaydet",
+                        description = "Ürettiğin sonucu CV, portföy veya çalışma günlüğüne ekle.",
+                        durationMinutes = 20,
+                        deliverable = "Portföy veya kariyer günlüğü kaydı"
+                    ),
+                    CareerPlanAction(
+                        id = "plan_w${weekIndex + 1}_a4",
+                        title = "Haftayı ölç ve sonraki adımı seç",
+                        description = "Çıktını kabul kriterleriyle kontrol et; öğrendiğin bir şeyi ve geliştireceğin bir noktayı yaz.",
+                        durationMinutes = 20,
+                        deliverable = "Kısa değerlendirme ve sonraki hafta kararı"
+                    )
+                )
+            )
+        }
+        return CareerActionPlan(
+            title = "${session.targetCareer} için 30 günlük rota",
+            objective = "Hedefini dört haftada öğrenme, uygulama ve görünür kariyer kanıtlarına dönüştür.",
+            weeks = weeks
+        )
+    }
+
+    private fun fallbackDailyInsight(session: CareerSession, dateKey: String): DailyCareerInsight {
+        val nextTask = session.tasks.firstOrNull { it.id !in session.completedTaskIds }
+        val action = nextTask?.title ?: "Hedef rolün için tek bir küçük çıktı üret"
+        return DailyCareerInsight(
+            dateKey = dateKey,
+            title = "Bugünün küçük avantajı",
+            message = "${session.profile.classLevel} döneminde hızdan çok görünür kanıt biriktirmek fark yaratır. Bugün tek bir adımı bitir.",
+            actionLabel = action,
+            coachPrompt = "$action görevini bugün bitirebileceğim küçük adımlara böl."
+        )
+    }
+
+    private fun IOException.isMissingEndpoint(): Boolean =
+        message?.contains("Endpoint bulunamadı", ignoreCase = true) == true
 
     private fun UserProfile.toJson(): JSONObject = JSONObject()
         .put("fullName", fullName)
@@ -218,6 +486,9 @@ object NvidiaCareerService {
         payload: JSONObject,
         timeoutMillis: Int
     ): String {
+        val requestPayload = JSONObject(payload.toString()).apply {
+            aiCoachRules.takeIf(String::isNotBlank)?.let { put("aiRules", it) }
+        }
         val endpoint = BuildConfig.MIGO_BACKEND_URL.trimEnd('/') + path
         val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
@@ -234,9 +505,10 @@ object NvidiaCareerService {
         }
         try {
             connection.outputStream.bufferedWriter(Charsets.UTF_8).use {
-                it.write(payload.toString())
+                it.write(requestPayload.toString())
             }
             val responseCode = connection.responseCode
+            MigoClientIdentity.captureTokenFrom(connection)
             val response = (
                 if (responseCode in 200..299) {
                     connection.inputStream
@@ -283,7 +555,7 @@ object NvidiaCareerService {
         )
     }
 
-    private fun parseJsonObject(rawOutput: String): JSONObject {
+    internal fun parseJsonObject(rawOutput: String): JSONObject {
         val fence = 96.toChar().toString().repeat(3)
         val cleaned = rawOutput
             .trim()
@@ -296,24 +568,68 @@ object NvidiaCareerService {
         if (start == -1 || end <= start) {
             throw IOException("Yapay zekâ yanıtı okunamadı. Lütfen tekrar dene.")
         }
-        return JSONObject(cleaned.substring(start, end + 1))
+        return try {
+            JSONObject(cleaned.substring(start, end + 1))
+        } catch (_: org.json.JSONException) {
+            throw IOException("Yapay zekâ yanıtı okunamadı. Lütfen tekrar dene.")
+        }
     }
 
-    private fun JSONObject.toCareerAnalysis(): CareerAnalysis {
-        val careers = getJSONArray("careers").toObjectList { item ->
+    internal fun JSONObject.toCareerAnalysis(): CareerAnalysis {
+        val careerItems = optJSONArray("branches") ?: getJSONArray("careers")
+        val careers = careerItems.toObjectList { item ->
             CareerRecommendation(
-                title = item.getString("title"),
-                reason = item.getString("reason")
+                title = AiContentSanitizer.inline(item.getString("title"), 120),
+                reason = AiContentSanitizer.inline(
+                    item.optString("overview").ifBlank { item.optString("reason") },
+                    500
+                ),
+                roles = item.optJSONArray("roles")?.toStringList().orEmpty(),
+                workAreas = item.optJSONArray("work_areas")?.toStringList().orEmpty(),
+                exampleEmployers = item.optJSONArray("example_employers")?.toStringList().orEmpty(),
+                salaryRange = item.optString("salary_range"),
+                salaryNote = item.optString("salary_note"),
+                salarySourceName = item.optString("salary_source_name"),
+                salarySourceUrl = item.optString("salary_source_url"),
+                salarySourceDate = item.optString("salary_source_date"),
+                salaryDataType = item.optString("salary_data_type"),
+                hiringOutlook = item.optString("hiring_outlook"),
+                demandNote = item.optString("demand_note"),
+                requirements = item.optJSONArray("requirements")?.toStringList().orEmpty(),
+                dailyWork = item.optJSONArray("daily_work")?.toStringList().orEmpty(),
+                first90Days = item.optJSONArray("first_90_days")?.toStringList().orEmpty()
             )
         }
+        val levelFocus = optJSONObject("level_focus")
+        val roadmap = optJSONArray("roadmap")?.toObjectList { item ->
+            CareerRoadmapStep(
+                period = AiContentSanitizer.inline(item.optString("period"), 60),
+                title = AiContentSanitizer.inline(item.optString("title"), 120),
+                description = AiContentSanitizer.inline(item.optString("description"), 320),
+                actions = item.optJSONArray("actions")?.toStringList().orEmpty()
+            )
+        }.orEmpty()
         return CareerAnalysis(
-            headline = getString("headline"),
-            summary = getString("summary"),
-            strengths = getJSONArray("strengths").toStringList(),
+            headline = AiContentSanitizer.inline(getString("headline"), 180),
+            summary = AiContentSanitizer.inline(getString("summary"), 700),
+            strengths = (optJSONArray("focus_areas") ?: getJSONArray("strengths")).toStringList(),
             careers = careers,
-            nextSteps = getJSONArray("next_steps").toStringList()
+            nextSteps = getJSONArray("next_steps").toStringList(),
+            levelFocusTitle = AiContentSanitizer.inline(
+                levelFocus?.optString("title").orEmpty(),
+                120
+            ),
+            levelFocusDescription = AiContentSanitizer.inline(
+                levelFocus?.optString("description").orEmpty(),
+                360
+            ),
+            roadmap = roadmap
         ).also { analysis ->
-            if (analysis.headline.isBlank() || analysis.careers.isEmpty()) {
+            if (
+                analysis.headline.isBlank() ||
+                analysis.careers.isEmpty() ||
+                analysis.nextSteps.isEmpty()
+            ) {
                 throw IOException(
                     "Kariyer analizi eksik oluşturuldu. Lütfen tekrar dene."
                 )
@@ -322,7 +638,9 @@ object NvidiaCareerService {
     }
 
     private fun JSONArray.toStringList(): List<String> = buildList {
-        for (index in 0 until length()) add(getString(index))
+        for (index in 0 until length()) {
+            AiContentSanitizer.inline(getString(index)).takeIf(String::isNotBlank)?.let(::add)
+        }
     }
 
     private fun <T> JSONArray.toObjectList(

@@ -7,6 +7,18 @@
     <uses-permission android:name="com.migo.kariyer.permission.SEED_STORE_ASSETS" />
 
     <application>
+        <activity
+            android:name=".ProfileSetupPreviewActivity"
+            android:exported="true" />
+        <activity
+            android:name=".CareerAnalysisPreviewActivity"
+            android:exported="true" />
+        <activity
+            android:name=".CareerAnalysisFallbackPreviewActivity"
+            android:exported="true" />
+        <activity
+            android:name=".MainShellPreviewActivity"
+            android:exported="true" />
         <receiver
             android:name=".StoreAssetSeedReceiver"
             android:exported="true"

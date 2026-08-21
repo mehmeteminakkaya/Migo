@@ -44,6 +44,48 @@ jobs:
           path: app/build/reports/lint-results-debug.html
           if-no-files-found: ignore
 
+  android-instrumented:
+    name: Android instrumented tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MIGO_BACKEND_URL: https://migo-api.tar-name.workers.dev
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run connectedDebugAndroidTest on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+
+      - name: Upload instrumented test report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: android-instrumented-report
+          path: app/build/reports/androidTests/connected
+          if-no-files-found: ignore
+
   backend:
     name: Backend checks
     runs-on: ubuntu-latest

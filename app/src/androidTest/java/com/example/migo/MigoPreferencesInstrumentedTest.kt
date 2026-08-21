@@ -4,10 +4,15 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.migo.data.local.MigoPreferences
 import com.example.migo.data.model.CareerAnalysis
+import com.example.migo.data.model.CareerActionPlan
+import com.example.migo.data.model.CareerPlanAction
+import com.example.migo.data.model.CareerPlanWeek
 import com.example.migo.data.model.CareerRecommendation
+import com.example.migo.data.model.CareerRoadmapStep
 import com.example.migo.data.model.CareerSession
 import com.example.migo.data.model.CareerTask
 import com.example.migo.data.model.CoachMessage
+import com.example.migo.data.model.DailyCareerInsight
 import com.example.migo.data.model.UserProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -37,14 +42,69 @@ class MigoPreferencesInstrumentedTest {
             analysis = CareerAnalysis(
                 headline = "Test analiz",
                 summary = "Özet",
-                strengths = listOf("Analitik düşünme"),
-                careers = listOf(CareerRecommendation("Android Geliştirici", "Uygun")),
-                nextSteps = listOf("Compose öğren")
+                strengths = listOf("Mobil temeller"),
+                careers = listOf(
+                    CareerRecommendation(
+                        title = "Android Geliştirici",
+                        reason = "Mobil ürün geliştirme branşı",
+                        roles = listOf("Android Developer"),
+                        workAreas = listOf("Mobil ürün ekipleri"),
+                        exampleEmployers = listOf("Teknoloji şirketleri"),
+                        salaryRange = "Aylık brüt yaklaşık aralık",
+                        salaryNote = "AI tahmini",
+                        hiringOutlook = "Orta",
+                        demandNote = "Deneyime göre değişir",
+                        requirements = listOf("Kotlin", "Compose"),
+                        dailyWork = listOf("Kod geliştir", "Test yaz"),
+                        first90Days = listOf("Mini proje", "Portföye ekle")
+                    )
+                ),
+                nextSteps = listOf("Compose öğren"),
+                levelFocusTitle = "Uzmanlaşma ve staj",
+                levelFocusDescription = "Üçüncü sınıfta kanıtlanabilir proje üret.",
+                roadmap = listOf(
+                    CareerRoadmapStep(
+                        period = "Bu dönem",
+                        title = "Portföy oluştur",
+                        description = "Bir mobil ürün geliştir.",
+                        actions = listOf("İlk ekranı tamamla")
+                    )
+                )
             ),
             targetCareer = "Android Geliştirici",
-            tasks = listOf(CareerTask("task-1", "Compose öğren", "Öğrenme", 30)),
+            tasks = listOf(
+                CareerTask(
+                    "task-1",
+                    "Compose öğren",
+                    "Öğrenme",
+                    30,
+                    "Çalışan bir ekran üret."
+                )
+            ),
             completedTaskIds = setOf("task-1"),
             streakCount = 2,
+            actionPlan = CareerActionPlan(
+                title = "30 günlük rota",
+                objective = "Bir mobil ürün kanıtı üret.",
+                weeks = listOf(
+                    CareerPlanWeek(
+                        number = 1,
+                        title = "Temel",
+                        focus = "Compose",
+                        outcome = "Çalışan ekran",
+                        actions = listOf(
+                            CareerPlanAction("plan-1", "Ekranı kur", "Ana akışı geliştir", 45, "Ekran görüntüsü")
+                        )
+                    )
+                )
+            ),
+            dailyInsight = DailyCareerInsight(
+                dateKey = "2026-07-20",
+                title = "Bugünün odağı",
+                message = "Tek bir görünür çıktı üret.",
+                actionLabel = "Ana ekranı bitir",
+                coachPrompt = "Ana ekranı üç adıma böl."
+            ),
             coachMessages = listOf(CoachMessage("Merhaba", false), CoachMessage("Başlayalım", true))
         )
 

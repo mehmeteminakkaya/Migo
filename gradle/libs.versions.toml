@@ -9,6 +9,7 @@ activityCompose = "1.13.0"
 kotlin = "2.4.0"
 composeBom = "2026.06.01"
 pdfBoxAndroid = "2.0.27.0"
+json = "20231013"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -28,6 +29,7 @@ androidx-compose-material3 = { group = "androidx.compose.material3", name = "mat
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 androidx-compose-ui-text-google-fonts = { group = "androidx.compose.ui", name = "ui-text-google-fonts" }
 pdfbox-android = { module = "com.tom-roush:pdfbox-android", version.ref = "pdfBoxAndroid" }
+json = { group = "org.json", name = "json", version.ref = "json" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -3,11 +3,18 @@ package com.example.migo.data.local
 import android.content.Context
 import android.util.Base64
 import androidx.core.content.edit
+import com.example.migo.data.model.AiContentSanitizer
 import com.example.migo.data.model.CareerAnalysis
+import com.example.migo.data.model.CareerActionPlan
+import com.example.migo.data.model.CareerPlanAction
+import com.example.migo.data.model.CareerPlanWeek
 import com.example.migo.data.model.CareerRecommendation
+import com.example.migo.data.model.CareerRoadmapStep
 import com.example.migo.data.model.CareerSession
 import com.example.migo.data.model.CareerTask
+import com.example.migo.data.model.CareerTaskPlanner
 import com.example.migo.data.model.CoachMessage
+import com.example.migo.data.model.DailyCareerInsight
 import com.example.migo.data.model.UserProfile
 import org.json.JSONArray
 import org.json.JSONObject
@@ -93,6 +100,14 @@ class MigoPreferences(
         return generated
     }
 
+    /** The Worker-issued, HMAC-signed installation token (see MigoClientIdentity), empty until first use. */
+    fun installationToken(): String =
+        preferences.getString(KEY_INSTALLATION_TOKEN, null).orEmpty()
+
+    fun saveInstallationToken(token: String) {
+        preferences.edit { putString(KEY_INSTALLATION_TOKEN, token) }
+    }
+
     fun isCloudDeletePending(): Boolean =
         preferences.getBoolean(KEY_PENDING_CLOUD_DELETE, false)
 
@@ -137,11 +152,41 @@ class MigoPreferences(
                                 JSONObject()
                                     .put("title", career.title)
                                     .put("reason", career.reason)
+                                    .put("roles", JSONArray(career.roles))
+                                    .put("workAreas", JSONArray(career.workAreas))
+                                    .put("exampleEmployers", JSONArray(career.exampleEmployers))
+                                    .put("salaryRange", career.salaryRange)
+                                    .put("salaryNote", career.salaryNote)
+                                    .put("salarySourceName", career.salarySourceName)
+                                    .put("salarySourceUrl", career.salarySourceUrl)
+                                    .put("salarySourceDate", career.salarySourceDate)
+                                    .put("salaryDataType", career.salaryDataType)
+                                    .put("hiringOutlook", career.hiringOutlook)
+                                    .put("demandNote", career.demandNote)
+                                    .put("requirements", JSONArray(career.requirements))
+                                    .put("dailyWork", JSONArray(career.dailyWork))
+                                    .put("first90Days", JSONArray(career.first90Days))
                             )
                         }
                     }
                 )
                 .put("nextSteps", JSONArray(analysis.nextSteps))
+                .put("levelFocusTitle", analysis.levelFocusTitle)
+                .put("levelFocusDescription", analysis.levelFocusDescription)
+                .put(
+                    "roadmap",
+                    JSONArray().apply {
+                        analysis.roadmap.forEach { step ->
+                            put(
+                                JSONObject()
+                                    .put("period", step.period)
+                                    .put("title", step.title)
+                                    .put("description", step.description)
+                                    .put("actions", JSONArray(step.actions))
+                            )
+                        }
+                    }
+                )
         )
         .put("targetCareer", targetCareer)
         .put("completedSteps", JSONArray(completedSteps.sorted()))
@@ -155,6 +200,7 @@ class MigoPreferences(
                             .put("title", task.title)
                             .put("category", task.category)
                             .put("durationMinutes", task.durationMinutes)
+                            .put("description", task.description)
                     )
                 }
             }
@@ -163,6 +209,8 @@ class MigoPreferences(
         .put("streakCount", streakCount)
         .put("lastCompletionDate", lastCompletionDate)
         .put("isPremium", isPremium)
+        .put("actionPlan", actionPlan?.toJson() ?: JSONObject.NULL)
+        .put("dailyInsight", dailyInsight?.toJson() ?: JSONObject.NULL)
         .put(
             "coachMessages",
             JSONArray().apply {
@@ -175,6 +223,47 @@ class MigoPreferences(
                 }
             }
         )
+
+    private fun CareerActionPlan.toJson(): JSONObject = JSONObject()
+        .put("title", title)
+        .put("objective", objective)
+        .put("durationDays", durationDays)
+        .put(
+            "weeks",
+            JSONArray().apply {
+                weeks.forEach { week ->
+                    put(
+                        JSONObject()
+                            .put("number", week.number)
+                            .put("title", week.title)
+                            .put("focus", week.focus)
+                            .put("outcome", week.outcome)
+                            .put(
+                                "actions",
+                                JSONArray().apply {
+                                    week.actions.forEach { action ->
+                                        put(
+                                            JSONObject()
+                                                .put("id", action.id)
+                                                .put("title", action.title)
+                                                .put("description", action.description)
+                                                .put("durationMinutes", action.durationMinutes)
+                                                .put("deliverable", action.deliverable)
+                                        )
+                                    }
+                                }
+                            )
+                    )
+                }
+            }
+        )
+
+    private fun DailyCareerInsight.toJson(): JSONObject = JSONObject()
+        .put("dateKey", dateKey)
+        .put("title", title)
+        .put("message", message)
+        .put("actionLabel", actionLabel)
+        .put("coachPrompt", coachPrompt)
 
     private fun JSONObject.toCareerSession(): CareerSession {
         val profileJson = getJSONObject("profile")
@@ -198,25 +287,62 @@ class MigoPreferences(
                 careers = analysisJson.getJSONArray("careers").toObjectList { career ->
                     CareerRecommendation(
                         title = career.getString("title"),
-                        reason = career.getString("reason")
+                        reason = career.getString("reason"),
+                        roles = career.optJSONArray("roles")?.toStringList().orEmpty(),
+                        workAreas = career.optJSONArray("workAreas")?.toStringList().orEmpty(),
+                        exampleEmployers = career.optJSONArray("exampleEmployers")?.toStringList().orEmpty(),
+                        salaryRange = career.optString("salaryRange", ""),
+                        salaryNote = career.optString("salaryNote", ""),
+                        salarySourceName = career.optString("salarySourceName", ""),
+                        salarySourceUrl = career.optString("salarySourceUrl", ""),
+                        salarySourceDate = career.optString("salarySourceDate", ""),
+                        salaryDataType = career.optString("salaryDataType", ""),
+                        hiringOutlook = career.optString("hiringOutlook", ""),
+                        demandNote = career.optString("demandNote", ""),
+                        requirements = career.optJSONArray("requirements")?.toStringList().orEmpty(),
+                        dailyWork = career.optJSONArray("dailyWork")?.toStringList().orEmpty(),
+                        first90Days = career.optJSONArray("first90Days")?.toStringList().orEmpty()
                     )
                 },
-                nextSteps = analysisJson.getJSONArray("nextSteps").toStringList()
+                nextSteps = analysisJson.getJSONArray("nextSteps").toStringList(),
+                levelFocusTitle = analysisJson.optString("levelFocusTitle", ""),
+                levelFocusDescription = analysisJson.optString("levelFocusDescription", ""),
+                roadmap = analysisJson.optJSONArray("roadmap")?.toObjectList { step ->
+                    CareerRoadmapStep(
+                        period = step.optString("period", ""),
+                        title = step.optString("title", ""),
+                        description = step.optString("description", ""),
+                        actions = step.optJSONArray("actions")?.toStringList().orEmpty()
+                    )
+                }.orEmpty()
             ),
             targetCareer = getString("targetCareer"),
             completedSteps = optJSONArray("completedSteps")?.toIntSet().orEmpty(),
             tasks = optJSONArray("tasks")?.toObjectList { task ->
-                CareerTask(
+                CareerTaskPlanner.normalize(CareerTask(
                     id = task.getString("id"),
                     title = task.getString("title"),
                     category = task.getString("category"),
-                    durationMinutes = task.getInt("durationMinutes")
-                )
+                    durationMinutes = task.getInt("durationMinutes"),
+                    description = task.optString("description", "")
+                ))
             }.orEmpty(),
             completedTaskIds = optJSONArray("completedTaskIds")?.toStringList()?.toSet().orEmpty(),
             streakCount = optInt("streakCount", 0),
             lastCompletionDate = optString("lastCompletionDate", ""),
             isPremium = optBoolean("isPremium", false),
+            actionPlan = optJSONObject("actionPlan")?.toCareerActionPlan(),
+            dailyInsight = optJSONObject("dailyInsight")?.let { insight ->
+                DailyCareerInsight(
+                    dateKey = insight.optString("dateKey", ""),
+                    title = insight.optString("title", ""),
+                    message = insight.optString("message", ""),
+                    actionLabel = AiContentSanitizer.taskText(
+                        insight.optString("actionLabel", "")
+                    ).title,
+                    coachPrompt = insight.optString("coachPrompt", "")
+                )
+            },
             coachMessages = optJSONArray("coachMessages")?.toObjectList { message ->
                 CoachMessage(
                     text = message.getString("text"),
@@ -225,6 +351,29 @@ class MigoPreferences(
             }.orEmpty()
         )
     }
+
+    private fun JSONObject.toCareerActionPlan(): CareerActionPlan = CareerActionPlan(
+        title = optString("title", ""),
+        objective = optString("objective", ""),
+        durationDays = optInt("durationDays", 30),
+        weeks = optJSONArray("weeks")?.toObjectList { week ->
+            CareerPlanWeek(
+                number = week.optInt("number", 1),
+                title = week.optString("title", ""),
+                focus = week.optString("focus", ""),
+                outcome = week.optString("outcome", ""),
+                actions = week.optJSONArray("actions")?.toObjectList { action ->
+                    CareerPlanAction(
+                        id = action.optString("id", ""),
+                        title = action.optString("title", ""),
+                        description = action.optString("description", ""),
+                        durationMinutes = action.optInt("durationMinutes", 30),
+                        deliverable = action.optString("deliverable", "")
+                    )
+                }.orEmpty()
+            )
+        }.orEmpty()
+    )
 
     private fun JSONArray.toStringList(): List<String> = buildList {
         for (index in 0 until length()) add(getString(index))
@@ -243,6 +392,7 @@ class MigoPreferences(
         private const val PREFERENCES_NAME = "migo_preferences"
         private const val KEY_SESSION = "career_session"
         private const val KEY_INSTALLATION_ID = "installation_id"
+        private const val KEY_INSTALLATION_TOKEN = "installation_token"
         private const val KEY_SYNC_SECRET = "sync_secret"
         private const val KEY_PENDING_CLOUD_DELETE = "pending_cloud_delete"
         private const val KEY_PRIVACY_CONSENT_VERSION = "privacy_consent_version"
