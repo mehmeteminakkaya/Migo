@@ -18,3 +18,5 @@ backend/*.cpuprofile
 /keystore/
 /keystore.properties
 /release-output/
+.superpowers/
+.codex-captures/
