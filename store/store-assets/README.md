@@ -11,7 +11,8 @@ profiliyle üretildi:
 6. `phone/06-profile.png`: kariyer profili ve gizlilik alanı.
 7. `feature-graphic-1024x500.png`: Google Play özellik grafiği.
 
-Telefon görüntüleri 1080×2400 PNG, özellik grafiği tam 1024×500 PNG boyutundadır.
+Telefon görüntüleri 1080×2340 PNG (gerçek cihaz çözünürlüğü, alfa kanalsız), özellik grafiği
+tam 1024×500 PNG boyutundadır.
 Gerçek ad, CV, sohbet, e-posta veya API anahtarı içermezler.
 
 Görselleri tekrar üretmek için debug APK'yı yükledikten sonra sentetik profili şu komutla
