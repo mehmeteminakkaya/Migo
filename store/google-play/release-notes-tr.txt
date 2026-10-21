@@ -5,4 +5,6 @@ Migo'nun ilk sürümü yayında.
 • Sohbet geçmişini koruyan AI kariyer koçu
 • PDF CV metni için güçlü yön ve gelişim analizi
 • YÖK Atlas tabanlı üniversite ve program araması
+• CV analizindeki geliştirmeleri tek dokunuşla planına ekleme
+• İsteğe bağlı günlük hatırlatma (varsayılan kapalı, yalnızca cihazında çalışır)
 • Anonim bulut eşitleme ve uygulama içinden veri silme

@@ -9,7 +9,11 @@
 - [x] Üniversite ve program aramasını farklı yazım örnekleriyle dene.
 - [x] D1 anonim kasa oluşturma, okuma ve silme akışını canlı serviste doğrula.
 - [ ] Aynı AI ve profil silme akışlarını fiziksel Android cihazda dene.
-- [ ] Crash/ANR ve ağ hatası ekranlarını zayıf bağlantıda kontrol et.
+- [ ] Crash/ANR ve ağ hatası ekranlarını zayıf bağlantıda kontrol et (koçta başarısız soru artık
+      geçmişe yazılmaz; "Tekrar dene" kartı çıkmalı).
+- [ ] Günlük hatırlatmayı fiziksel cihazda dene: Ayarlar'dan aç, Android 13+ izin isteğini onayla,
+      19:00 bildirimini ve dokununca uygulamanın açıldığını doğrula; "Tüm verilerimi sil" sonrası
+      bildirimin durduğunu kontrol et.
 
 ## İmzalama ve paket
 
@@ -37,6 +41,8 @@
 
 - [ ] En az bir düşük/orta ve bir büyük ekranlı Android cihazda kontrol et.
 - [ ] Açık/koyu tema, klavye, geri tuşu, ekran döndürme ve süreç yeniden oluşturmayı dene.
+      Onboarding sırasında döndürmede profil/analiz artık korunmalı (`MigoViewModel`); süreç
+      ölümünde onboarding yarıda kalırsa başa dönmesi beklenen davranıştır.
 - [ ] Yeni kurulumda bilgilendirme ekranını; güncellemede mevcut profilin korunmasını dene.
 - [ ] Çevrimdışıyken veri silip uygulamayı yeniden aç; bekleyen silmenin tekrarlandığını doğrula.
 - [ ] Uygulamayı iç testten indirip üretim AAB davranışını doğrula.
@@ -50,6 +56,8 @@
 ## Otomatik doğrulamalar
 
 - [x] Android birim testleri, lint ve debug APK derlemesi.
+- [ ] Yeni eklenen enstrümantasyon testi `LocalDataCipherInstrumentedTest` cihazda çalıştırıldı
+      (şu an yalnızca derleniyor).
 - [x] Pixel 8 emülatörde enstrümantasyon testleri.
 - [x] Worker testleri, dry-run deploy ve startup kontrolü.
 - [x] GitHub Actions CI ve Dependabot yapılandırması.

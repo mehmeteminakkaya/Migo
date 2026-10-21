@@ -13,6 +13,9 @@ Bu belge mevcut Migo kodunun teknik envanteridir. Play Console yanıtları gönd
 - Hesap oluşturma: Hayır. Rastgele kurulum kimliği ve gizli kasa anahtarı kullanılır.
 - Reklam veya davranışsal takip: Hayır.
 - Konum, kişiler, kamera veya mikrofon izni: Yok.
+- Bildirim izni (`POST_NOTIFICATIONS`): Var, isteğe bağlı. Yalnızca kullanıcı Ayarlar → Günlük
+  hatırlatma anahtarını açarsa istenir; bildirim cihazda yerel olarak üretilir ve hiçbir veri
+  sunucuya gönderilmez. Data Safety'de yeni bir veri türü doğurmaz.
 
 ## Veri türü envanteri
 
@@ -36,7 +39,9 @@ uygundur. Reklam, pazarlama ve analiz amacı mevcut kodda kullanılmıyor.
 ## Gönderimden önce açık kararlar
 
 1. NVIDIA NIM hesabındaki istek/içerik saklama ve model eğitimi ayarlarını kontrol et.
-2. Cloudflare gözlemlenebilirlik loglarında istek gövdesi tutulmadığını doğrula.
+2. Cloudflare gözlemlenebilirlik loglarında istek gövdesi tutulmadığını doğrula. Worker'ın kendi
+   olayları (`ai_request`, `ai_model_call`) yalnızca yol, durum kodu, süre ve model adı içerir;
+   kullanıcı içeriği veya kimlik yazmaz.
 3. Cloudflare ve NVIDIA'nın Play tanımında yalnızca “hizmet sağlayıcı” olup olmadığını
    geçerli sözleşmeler üzerinden teyit et; buna göre “paylaşılan veri” kutularını kesinleştir.
 4. Mağaza geliştirici e-postasını gizlilik sayfasındaki iletişim metniyle eşleştir.
