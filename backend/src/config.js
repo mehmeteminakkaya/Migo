@@ -1,8 +1,12 @@
 export const NVIDIA_ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions";
 
-export const PRIMARY_MODEL = "mistralai/mistral-small-4-119b-2603";
+// NVIDIA modelleri kısa sürede yayından kalkar (410 Gone): mistral-small-4 (2026-07-27) ve
+// llama-3.3-70b-instruct (2026-08-26) kalktı. Yeniden dağıtım yapmadan değiştirmek için Worker
+// değişkenleri NVIDIA_PRIMARY_MODEL / NVIDIA_FALLBACK_MODEL kullanılır (bkz. callNvidia).
+// Yedek varsayılan, hesapta açık ve hızlı olan başka bir model bulunana kadar aynı model (yeniden deneme).
+export const PRIMARY_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b";
 
-export const FALLBACK_MODEL = "meta/llama-3.3-70b-instruct";
+export const FALLBACK_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b";
 
 export const MODEL_TIMEOUT_MS = 35_000;
 

@@ -1,6 +1,6 @@
 import { UserFacingError, json } from "./http.js";
-import { callNvidia, withAiCoachRules } from "./nvidia.js";
-import { clampInt, clean, parseJsonObject, stringList } from "./text.js";
+import { callNvidia, callNvidiaJson, withAiCoachRules } from "./nvidia.js";
+import { clampInt, clean, stringList } from "./text.js";
 
 export async function careerAnalysis(body, env) {
   const profile = body?.profile || {};
@@ -27,12 +27,10 @@ Tam olarak 5 önerilen ilgi/odak alanı, 5 geliştirilmesi önerilen yetkinlik, 
     selfReportedInterests: interests,
     selfReportedSkills: skills
   };
-  const output = await callNvidia(env, [
+  const parsed = await callNvidiaJson(env, [
     { role: "system", content: system },
     { role: "user", content: `Bu öğrenci için kariyer analizi hazırla: ${JSON.stringify(student)}` }
   ], 1400, 0.35);
-
-  const parsed = parseJsonObject(output);
   return json(parsed);
 }
 
@@ -63,12 +61,10 @@ ve 3 ilk 90 gün adımı üret. Yanıt tamamen Türkçe olsun.`;
     branchTitle,
     branchReason: clean(branch.reason, 500)
   };
-  const output = await callNvidia(env, [
+  const parsed = await callNvidiaJson(env, [
     { role: "system", content: system },
     { role: "user", content: `Bu kariyer dalı için künye hazırla: ${JSON.stringify(student)}` }
   ], 900, 0.35);
-
-  const parsed = parseJsonObject(output);
   const result = {
     title: clean(parsed?.title, 120) || branchTitle,
     overview: clean(parsed?.overview, 500),
@@ -124,12 +120,10 @@ Yanıt tamamen Türkçe olsun.`;
     branchRequirements: stringList(branch.requirements, 8),
     completedTasks
   };
-  const output = await callNvidia(env, [
+  const parsed = await callNvidiaJson(env, [
     { role: "system", content: withAiCoachRules(system, body) },
     { role: "user", content: `Bu öğrenci için 30 günlük eylem planı hazırla: ${JSON.stringify(student)}` }
-  ], 1700, 0.4);
-
-  const parsed = parseJsonObject(output);
+  ], 3600, 0.4);
   const weeksRaw = Array.isArray(parsed?.weeks) ? parsed.weeks.slice(0, 4) : [];
   const weeks = weeksRaw.map((week, weekIndex) => {
     const actionsRaw = Array.isArray(week?.actions) ? week.actions.slice(0, 4) : [];
@@ -186,12 +180,10 @@ Yanıt tamamen Türkçe olsun.`;
     nextTask: clean(body?.nextTask, 160),
     completionPercent: clampInt(body?.completionPercent, 0, 100, 0)
   };
-  const output = await callNvidia(env, [
+  const parsed = await callNvidiaJson(env, [
     { role: "system", content: system },
     { role: "user", content: `Bugün için kısa bir kariyer içgörüsü hazırla: ${JSON.stringify(student)}` }
   ], 350, 0.5);
-
-  const parsed = parseJsonObject(output);
   const result = {
     date_key: dateKey,
     title: clean(parsed?.title, 80),
@@ -277,12 +269,10 @@ export async function cvAnalysis(body, env) {
     department,
     cvText
   };
-  const output = await callNvidia(env, [
+  const parsed = await callNvidiaJson(env, [
     { role: "system", content: system },
     { role: "user", content: "Bu CV metnini analiz et: " + JSON.stringify(candidate) }
   ], 1300, 0.25);
-
-  const parsed = parseJsonObject(output);
   const score = Number.isFinite(Number(parsed?.score))
     ? Math.max(0, Math.min(100, Math.round(Number(parsed.score))))
     : 0;

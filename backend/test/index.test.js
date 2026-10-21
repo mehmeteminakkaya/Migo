@@ -605,6 +605,78 @@ test("safeHashEquals returns false (not throws) for equal-length strings with di
   assert.equal(safeHashEquals(undefined, "abc"), false);
 });
 
+test("model selection: Nemotron defaults disable thinking; NVIDIA_*_MODEL vars override without a redeploy", async () => {
+  const originalFetch = globalThis.fetch;
+  const bodies = [];
+  globalThis.fetch = async (_url, init) => {
+    bodies.push(JSON.parse(init.body));
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({
+        title: "Gün", message: "Küçük adım.", action_label: "Başla", coach_prompt: "Böl."
+      }) } }]
+    }), { status: 200 });
+  };
+  const call = (environment) => worker.fetch(
+    post("/v1/daily-insight", JSON.stringify({ targetCareer: "Android Geliştirici", dateKey: "2026-08-21" })),
+    environment,
+    {}
+  );
+  try {
+    assert.equal((await call(env())).status, 200);
+    assert.match(bodies[0].model, /nemotron/i);
+    assert.deepEqual(bodies[0].chat_template_kwargs, { enable_thinking: false });
+
+    assert.equal((await call(env({ NVIDIA_PRIMARY_MODEL: "vendor/other-model" }))).status, 200);
+    assert.equal(bodies[1].model, "vendor/other-model");
+    assert.equal("chat_template_kwargs" in bodies[1], false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("daily-insight retries once when the model returns truncated JSON, then succeeds", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    const content = calls === 1
+      ? '{"title":"Gün","message":"Küçük adım.","action_label":"Başla","coach_prompt":"Böl'
+      : JSON.stringify({ title: "Gün", message: "Küçük adım.", action_label: "Başla", coach_prompt: "Böl." });
+    return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 });
+  };
+  try {
+    const response = await worker.fetch(
+      post("/v1/daily-insight", JSON.stringify({ targetCareer: "Android Geliştirici", dateKey: "2026-08-21" })),
+      env(),
+      {}
+    );
+    assert.equal(response.status, 200);
+    assert.equal(calls, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("unreadable JSON twice gives a Turkish user-facing error, not the generic one", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(
+    JSON.stringify({ choices: [{ message: { content: '{"title":"yarım' } }] }),
+    { status: 200 }
+  );
+  try {
+    const response = await worker.fetch(
+      post("/v1/daily-insight", JSON.stringify({ targetCareer: "Android Geliştirici", dateKey: "2026-08-21" })),
+      env(),
+      {}
+    );
+    const payload = await response.json();
+    assert.equal(response.status, 502);
+    assert.equal(payload.error, "AI yanıtı okunamadı.");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("scheduled retention deletes expired anonymous vaults", async () => {
   const database = createMemoryDb();
   const environment = env({ DB: database });

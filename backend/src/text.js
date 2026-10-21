@@ -11,7 +11,12 @@ export function parseJsonObject(value) {
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
   if (start < 0 || end <= start) throw new UserFacingError("AI yanıtı okunamadı.");
-  return JSON.parse(cleaned.slice(start, end + 1));
+  try {
+    return JSON.parse(cleaned.slice(start, end + 1));
+  } catch {
+    // Çoğunlukla token sınırında kesilmiş/bozuk JSON; ham SyntaxError kullanıcıya "Beklenmeyen hata" olarak gitmesin.
+    throw new UserFacingError("AI yanıtı okunamadı.");
+  }
 }
 
 export function clean(value, maxLength) {

@@ -127,9 +127,7 @@ AI endpoints and their prompts/`normalize*` logic).
   (`CLIENT_AI_RATE_LIMITER` / `NETWORK_AI_RATE_LIMITER` for AI endpoints, `SYNC_RATE_LIMITER` for sync),
   declared in `wrangler.jsonc`. `enforceAiRateLimits` fails closed if a binding is missing.
   Configured limits (see `wrangler.jsonc`): 12/min per install, 15/min per network IP for AI; 60/min per install for sync.
-- **AI calls** (`callNvidia` in `nvidia.js`) try `PRIMARY_MODEL` then `FALLBACK_MODEL` (see `config.js` for the
-  current ids). Endpoints ask for JSON in the prompt and parse it with `parseJsonObject`; each has a
-  `normalize*` function that clamps lengths and throws on incomplete output. Every AI system prompt is Turkish
+- **AI calls** (`callNvidia` / `callNvidiaJson` in `nvidia.js`) try the primary model, then the fallback (defaults in `config.js`, overridable without a redeploy via the Worker vars `NVIDIA_PRIMARY_MODEL` / `NVIDIA_FALLBACK_MODEL`). **NVIDIA retires models fast** (410 Gone): `mistral-small-4` and `llama-3.3-70b-instruct` are already gone; the current default is `nvidia/nemotron-3.5-lightning-30b-a3b`, a reasoning model, so `enable_thinking:false` is sent for Nemotron or it returns empty content. Endpoints ask for JSON in the prompt; `callNvidiaJson` parses it with `parseJsonObject` and retries once on unreadable/truncated JSON (watch `maxTokens`: a too-small budget truncates the action plan). Each has a `normalize*` function that clamps lengths and throws on incomplete output. Every AI system prompt is Turkish
   and encodes hard content rules directly in the prompt text (no personality/skill inference beyond declared
   profile data, internships framed as optional with equivalent alternatives, no fabricated job/salary
   guarantees, regulated professions must state real requirements) — when touching prompts, preserve these
