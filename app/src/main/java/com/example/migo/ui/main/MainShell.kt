@@ -282,7 +282,7 @@ internal fun CareerSession.effectiveCompletedTaskIds(): Set<String> {
     return completedSteps.mapNotNull { taskList.getOrNull(it)?.id }.toSet()
 }
 
-private fun CareerSession.toggleTask(taskId: String): CareerSession {
+internal fun CareerSession.toggleTask(taskId: String): CareerSession {
     val taskList = effectiveTasks()
     val updated = effectiveCompletedTaskIds().toMutableSet()
     val wasCompleted = !updated.add(taskId)
@@ -302,7 +302,7 @@ private fun CareerSession.toggleTask(taskId: String): CareerSession {
     )
 }
 
-private fun dateKey(calendar: Calendar): String =
+internal fun dateKey(calendar: Calendar): String =
     SimpleDateFormat("yyyy-MM-dd", Locale.US).format(calendar.time)
 
 private const val MAX_SAVED_COACH_MESSAGES = 50
