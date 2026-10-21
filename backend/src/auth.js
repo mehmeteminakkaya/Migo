@@ -8,9 +8,14 @@ export async function hashSyncSecret(value) {
 }
 
 export function safeHashEquals(left, right) {
-  if (typeof left !== "string" || left.length !== right.length) return false;
+  if (typeof left !== "string" || typeof right !== "string") return false;
   const encoder = new TextEncoder();
-  return crypto.subtle.timingSafeEqual(encoder.encode(left), encoder.encode(right));
+  const leftBytes = encoder.encode(left);
+  const rightBytes = encoder.encode(right);
+  // Compare byte lengths: equal char counts can still encode to different byte lengths, which makes
+  // timingSafeEqual throw instead of returning false.
+  if (leftBytes.byteLength !== rightBytes.byteLength) return false;
+  return crypto.subtle.timingSafeEqual(leftBytes, rightBytes);
 }
 
 // The client-supplied `x-migo-installation` id is not trustworthy on its own: a caller can send a

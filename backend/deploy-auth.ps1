@@ -44,7 +44,8 @@ try {
     if (($secretOutput -join "`n") -notmatch '"name"\s*:\s*"INSTALLATION_TOKEN_SECRET"') {
         Write-Host "INSTALLATION_TOKEN_SECRET eksik, rastgele bir deger uretilip ayarlaniyor." -ForegroundColor Cyan
         $randomBytes = [byte[]]::new(32)
-        [System.Security.Cryptography.RandomNumberGenerator]::Fill($randomBytes)
+        # RandomNumberGenerator.Fill is .NET Core only; Windows PowerShell 5.1 needs Create().GetBytes.
+        [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($randomBytes)
         $randomSecret = [Convert]::ToBase64String($randomBytes)
         $randomSecret | & "$PSScriptRoot\cloudflare.cmd" secret put INSTALLATION_TOKEN_SECRET
         if ($LASTEXITCODE -ne 0) {

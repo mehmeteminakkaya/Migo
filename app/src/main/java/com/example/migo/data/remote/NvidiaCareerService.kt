@@ -324,10 +324,9 @@ object NvidiaCareerService {
     ): CareerRecommendation {
         val json = parseJsonObject(rawOutput)
         return CareerRecommendation(
-            title = AiContentSanitizer.inline(
-                json.optString("title").ifBlank { fallback.title },
-                120
-            ),
+            // The title is the join key for selection and plan lookups (`career.title == targetCareer`),
+            // so the AI must not rename the branch the user picked.
+            title = fallback.title,
             reason = AiContentSanitizer.inline(
                 json.optString("overview").ifBlank { fallback.reason },
                 500

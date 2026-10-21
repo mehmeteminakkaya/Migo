@@ -44,6 +44,7 @@ export const AI_PATHS = new Set([
 // coaching content (the weekly action plan, freeform coach Q&A) fold it in;
 // daily-insight is a one-sentence nudge the sprint rules don't fit, and the
 // analysis/detail/cv endpoints have their own narrower schemas.
-export const MAX_AI_RULES_CHARS = 12_000;
+// Must stay >= the client's own cap (AiCoachRules.MAX_RULES_CHARACTERS) or the ruleset's tail is cut off.
+export const MAX_AI_RULES_CHARS = 24_000;
 
 export const GENERIC_ERROR_MESSAGE = "Beklenmeyen bir hata oluştu.";

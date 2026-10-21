@@ -126,7 +126,8 @@ internal fun HomeScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            if (session.streakCount > 0) {
+            val streak = session.currentStreak()
+            if (streak > 0) {
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(4.dp))
@@ -142,7 +143,7 @@ internal fun HomeScreen(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        "${session.streakCount} gün",
+                        "$streak gün",
                         fontWeight = FontWeight.Bold,
                         color  = MaterialTheme.colorScheme.primary,
                         style  = MaterialTheme.typography.labelMedium

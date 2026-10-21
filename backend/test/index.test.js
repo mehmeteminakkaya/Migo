@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import worker from "../src/index.js";
+import { safeHashEquals } from "../src/auth.js";
+import { normalizeCoachHistory } from "../src/endpoints.js";
 
 const installationId = "test_installation_1234567890";
 const syncSecret = "abcdefghijklmnopqrstuvwxyzABCDEFGH1234567890_-";
@@ -579,6 +581,28 @@ test("a failed primary model is logged and the fallback model's success is flagg
   const request = events.find((event) => event.event === "ai_request");
   assert.equal(request.path, "/v1/daily-insight");
   assert.equal(request.status, 200);
+});
+
+test("coach history drops leading assistant turns, merges repeats and never ends on a user turn", () => {
+  const history = normalizeCoachHistory([
+    { role: "assistant", content: "Merhaba!" },
+    { role: "user", content: "Soru 1" },
+    { role: "user", content: "Soru 1b" },
+    { role: "assistant", content: "Cevap 1" },
+    { role: "user", content: "yarım kalan" }
+  ]);
+  assert.deepEqual(history, [
+    { role: "user", content: "Soru 1\n\nSoru 1b" },
+    { role: "assistant", content: "Cevap 1" }
+  ]);
+  assert.deepEqual(normalizeCoachHistory(undefined), []);
+});
+
+test("safeHashEquals returns false (not throws) for equal-length strings with different byte lengths", () => {
+  assert.equal(safeHashEquals("abc", "abc"), true);
+  assert.equal(safeHashEquals("abc", "abd"), false);
+  assert.equal(safeHashEquals("aaa", "aaş"), false);
+  assert.equal(safeHashEquals(undefined, "abc"), false);
 });
 
 test("scheduled retention deletes expired anonymous vaults", async () => {

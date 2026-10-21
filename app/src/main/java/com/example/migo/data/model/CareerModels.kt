@@ -123,15 +123,18 @@ data class ParsedCareerTaskText(
 object AiContentSanitizer {
     private val markdownLink = Regex("\\[([^]]+)]\\(https?://[^)]+\\)")
     private val leadingListMarker = Regex("^\\s*(?:[-•]\\s+|\\d+[.)]\\s+)")
+    private val headingMarker = Regex("(?m)^\\s{0,3}#{1,6}\\s*")
+    private val horizontalSpace = Regex("[ \\t]+")
+    private val lineBreak = Regex("\\s*\\n\\s*")
 
     fun inline(raw: String, maxLength: Int = 700): String = raw
         .replace(markdownLink) { match -> match.groupValues[1] }
-        .replace(Regex("(?m)^\\s{0,3}#{1,6}\\s*"), "")
+        .replace(headingMarker, "")
         .replace("**", "")
         .replace("__", "")
         .replace("`", "")
-        .replace(Regex("[ \\t]+"), " ")
-        .replace(Regex("\\s*\\n\\s*"), " ")
+        .replace(horizontalSpace, " ")
+        .replace(lineBreak, " ")
         .trim()
         .take(maxLength)
         .trim()
@@ -237,7 +240,13 @@ object CareerTaskPlanner {
             .distinctBy { it.id }
 
     fun normalize(task: CareerTask): CareerTask {
-        val parsed = AiContentSanitizer.taskText(task.title)
+        // A task that already has a description keeps its title whole; re-splitting would cut a title
+        // like "Lisans: Bilgisayar Mühendisliği diploması" down to "Lisans".
+        val parsed = if (task.description.isBlank()) {
+            AiContentSanitizer.taskText(task.title)
+        } else {
+            ParsedCareerTaskText(AiContentSanitizer.inline(task.title, 120), "")
+        }
         val normalized = task.copy(
             title = parsed.title.ifBlank { "Kariyer adımını tamamla" },
             category = AiContentSanitizer.inline(task.category, 40).ifBlank { "Gelişim" },

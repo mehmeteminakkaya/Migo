@@ -205,6 +205,28 @@ Yanıt tamamen Türkçe olsun.`;
   return json(result);
 }
 
+// Chat templates (Mistral in particular) reject an assistant turn right after the system message and
+// non-alternating roles, and the app's thread always opens with the assistant greeting. Drop leading
+// assistant turns and merge consecutive same-role turns so the upstream request is always well-formed.
+export function normalizeCoachHistory(history) {
+  if (!Array.isArray(history)) return [];
+  const turns = [];
+  for (const item of history.slice(-8)) {
+    const content = clean(item?.content, 2000);
+    if (!content) continue;
+    const role = item?.role === "assistant" ? "assistant" : "user";
+    const last = turns[turns.length - 1];
+    if (last && last.role === role) last.content = `${last.content}
+
+${content}`;
+    else turns.push({ role, content });
+  }
+  while (turns.length && turns[0].role === "assistant") turns.shift();
+  // The new question is appended as a user turn, so history must not end on one.
+  if (turns.length && turns[turns.length - 1].role === "user") turns.pop();
+  return turns;
+}
+
 export async function coach(body, env) {
   const question = clean(body?.question, 1000);
   if (!question) return json({ error: "Soru boş olamaz." }, 400);
@@ -216,10 +238,7 @@ export async function coach(body, env) {
 Kullanıcının hedefi ${targetCareer}; bölümü ${department}; yetkinlikleri ${skills.join(", ")}.
 Kısa, somut ve uygulanabilir cevap ver. İş, maaş veya başarı garantisi verme. Güncel bilgi bilmiyorsan uydurma.
 Uygunsa en fazla 4 maddelik eylem listesiyle bitir.`;
-  const history = Array.isArray(body?.history) ? body.history.slice(-8).map((item) => ({
-    role: item?.role === "assistant" ? "assistant" : "user",
-    content: clean(item?.content, 2000)
-  })).filter((item) => item.content) : [];
+  const history = normalizeCoachHistory(body?.history);
 
   const answer = await callNvidia(env, [
     { role: "system", content: withAiCoachRules(system, body) },

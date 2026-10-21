@@ -320,6 +320,12 @@ internal fun CareerSession.toggleTask(taskId: String): CareerSession {
     )
 }
 
+/** The streak as the user should see it: it only counts while the last completion was today or yesterday. */
+internal fun CareerSession.currentStreak(now: Calendar = Calendar.getInstance()): Int {
+    val yesterday = (now.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, -1) }
+    return if (lastCompletionDate == dateKey(now) || lastCompletionDate == dateKey(yesterday)) streakCount else 0
+}
+
 internal fun dateKey(calendar: Calendar): String =
     SimpleDateFormat("yyyy-MM-dd", Locale.US).format(calendar.time)
 
