@@ -424,6 +424,14 @@ async function actionPlan(body, env) {
   const system = `Sen Migo uygulamasındaki Türkçe kariyer koçusun.
 Öğrenciye hedef kariyeri için tam 4 haftalık, uygulanabilir bir eylem planı hazırla.
 Bilgi uydurma; gerçekçi ve ölçülebilir görevler ver. İş veya başarı garantisi verme.
+
+Yazım tonu: öğrenciye doğrudan "sen" diyerek, sıcak ama gösterişsiz bir dille yaz —
+bir arkadaşının sana ne yapman gerektiğini anlattığı gibi. Kısa, somut cümleler kur.
+"Katkı sağlayacak", "değerli bir fırsat sunacak", "potansiyelini keşfet" gibi şişirilmiş,
+kalıp AI ifadelerinden kaçın. Her başlık ve açıklama okuyanın "bunu bugün yapabilirim"
+demesini sağlamalı; soyut değil, iş tanımı kadar net olsun. objective ve outcome alanları
+"neden önemli" sorusuna tek cümlede cevap versin.
+
 Yalnızca geçerli JSON döndür. Şema:
 {"title":"","objective":"","duration_days":30,"weeks":[
 {"number":1,"title":"","focus":"","outcome":"","actions":[
