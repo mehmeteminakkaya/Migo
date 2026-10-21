@@ -164,6 +164,16 @@ fun MainShell(
         }
     }
 
+    val cvTasks = remember(cvAnalysis) {
+        cvAnalysis?.let { CareerTaskPlanner.fromCvImprovements(it.improvements) }.orEmpty()
+    }
+    val cvTasksAdded = cvTasks.isNotEmpty() && cvTasks.all { cvTask -> session.tasks.any { it.id == cvTask.id } }
+    val addCvTasks: () -> Unit = {
+        if (cvTasks.isNotEmpty()) {
+            onSessionChange(latestSession.copy(tasks = (latestSession.effectiveTasks() + cvTasks).distinctBy { it.id }))
+        }
+    }
+
     val createActionPlan: () -> Unit = createPlan@{
         if (planIsLoading) return@createPlan
         planIsLoading = true
@@ -237,13 +247,15 @@ fun MainShell(
                     isReadingPdf = cvIsReading,
                     pdfFileName = cvFileName,
                     errorMessage = cvError,
+                    cvTasksAdded = cvTasksAdded,
                     onCvTextChange = { updatedText ->
                         cvText = updatedText
                         cvAnalysis = null
                         cvError = null
                     },
                     onPickPdf = { pdfPicker.launch(arrayOf("application/pdf")) },
-                    onAnalyze = analyzeCv
+                    onAnalyze = analyzeCv,
+                    onAddCvTasks = addCvTasks
                 )
                 MainTab.COACH -> CoachScreen(
                     session = session,

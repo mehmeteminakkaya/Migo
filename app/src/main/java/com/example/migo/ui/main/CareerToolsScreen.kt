@@ -74,9 +74,11 @@ fun CareerToolsScreen(
     isReadingPdf: Boolean,
     pdfFileName: String?,
     errorMessage: String?,
+    cvTasksAdded: Boolean,
     onCvTextChange: (String) -> Unit,
     onPickPdf: () -> Unit,
-    onAnalyze: () -> Unit
+    onAnalyze: () -> Unit,
+    onAddCvTasks: () -> Unit
 ) {
     var showPlusDialog by remember { mutableStateOf(false) }
 
@@ -315,7 +317,7 @@ fun CareerToolsScreen(
 
         result?.let { analysis ->
             Spacer(modifier = Modifier.height(16.dp))
-            AiCvResultCard(analysis)
+            AiCvResultCard(analysis, tasksAdded = cvTasksAdded, onAddTasks = onAddCvTasks)
         }
 
         Spacer(modifier = Modifier.height(22.dp))
@@ -397,7 +399,7 @@ private fun PlusCard(onClick: () -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AiCvResultCard(result: CvAnalysis) {
+private fun AiCvResultCard(result: CvAnalysis, tasksAdded: Boolean, onAddTasks: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(6.dp),
@@ -438,6 +440,12 @@ private fun AiCvResultCard(result: CvAnalysis) {
 
             AnalysisList(title = "Güçlü yönler", items = result.strengths)
             AnalysisList(title = "Öncelikli geliştirmeler", items = result.improvements)
+            if (result.improvements.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedButton(onClick = onAddTasks, enabled = !tasksAdded) {
+                    Text(if (tasksAdded) "Planına eklendi" else "İlk 3 geliştirmeyi planıma ekle")
+                }
+            }
 
             if (result.missingKeywords.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(18.dp))

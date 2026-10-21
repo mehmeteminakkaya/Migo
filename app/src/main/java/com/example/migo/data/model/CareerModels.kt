@@ -214,6 +214,28 @@ object CareerTaskPlanner {
             .distinctBy { it.title.lowercase() }
     }
 
+    /**
+     * Turns the CV analysis' top improvements into plan tasks. Ids derive from the improvement text so
+     * adding the same analysis twice is a no-op rather than a duplicate.
+     */
+    fun fromCvImprovements(improvements: List<String>, limit: Int = 3): List<CareerTask> =
+        improvements
+            .map { AiContentSanitizer.taskText(it) }
+            .filter { it.title.isNotBlank() }
+            .take(limit)
+            .map { parsed ->
+                normalize(
+                    CareerTask(
+                        id = "cv_" + parsed.title.lowercase().hashCode().toUInt().toString(16),
+                        title = parsed.title,
+                        category = "CV",
+                        durationMinutes = 30,
+                        description = parsed.description
+                    )
+                )
+            }
+            .distinctBy { it.id }
+
     fun normalize(task: CareerTask): CareerTask {
         val parsed = AiContentSanitizer.taskText(task.title)
         val normalized = task.copy(
