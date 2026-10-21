@@ -548,6 +548,39 @@ test("daily-insight echoes the requested date key and normalizes the AI response
   );
 });
 
+test("a failed primary model is logged and the fallback model's success is flagged", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalLog = console.log;
+  const events = [];
+  let calls = 0;
+  console.log = (line) => events.push(JSON.parse(line));
+  globalThis.fetch = async () => {
+    calls += 1;
+    if (calls === 1) return new Response("nope", { status: 500 });
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({
+        title: "Gün", message: "Küçük adım.", action_label: "Başla", coach_prompt: "Böl."
+      }) } }]
+    }), { status: 200 });
+  };
+  try {
+    const response = await worker.fetch(
+      post("/v1/daily-insight", JSON.stringify({ targetCareer: "Android Geliştirici", dateKey: "2026-08-21" })),
+      env(),
+      {}
+    );
+    assert.equal(response.status, 200);
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.log = originalLog;
+  }
+  const modelCalls = events.filter((event) => event.event === "ai_model_call");
+  assert.deepEqual(modelCalls.map((event) => [event.fallback, event.outcome]), [[false, "error"], [true, "ok"]]);
+  const request = events.find((event) => event.event === "ai_request");
+  assert.equal(request.path, "/v1/daily-insight");
+  assert.equal(request.status, 200);
+});
+
 test("scheduled retention deletes expired anonymous vaults", async () => {
   const database = createMemoryDb();
   const environment = env({ DB: database });

@@ -109,6 +109,12 @@ export function logError(operation, error) {
   }));
 }
 
+// Structured, payload-free event for dashboards (latency, fallback rate, failures). Never pass user
+// content or identifiers in `fields`.
+export function logEvent(event, fields = {}) {
+  console.log(JSON.stringify({ level: "info", event, ...fields }));
+}
+
 export function json(value, status = 200, cacheControl = "no-store", extraHeaders = {}) {
   return new Response(JSON.stringify(value), {
     status,

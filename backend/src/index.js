@@ -3,7 +3,7 @@ import { enforceAiRateLimits, withInstallationToken } from "./auth.js";
 import { AI_PATHS, INSTALLATION_HEADER, INSTALLATION_ID_PATTERN, SYNC_PATH } from "./config.js";
 import { educationSearch } from "./education.js";
 import { actionPlan, careerAnalysis, careerDetail, coach, cvAnalysis, dailyInsight } from "./endpoints.js";
-import { ClientRequestError, json, logError, readJsonBody, safeError } from "./http.js";
+import { ClientRequestError, json, logError, logEvent, readJsonBody, safeError } from "./http.js";
 import { deleteExpiredVaults, syncSession } from "./sync.js";
 import { clean } from "./text.js";
 
@@ -81,6 +81,7 @@ export default {
       return withInstallationToken(json({ error: safeError(error) }, status), token);
     }
 
+    const startedAt = Date.now();
     try {
       const path = url.pathname;
       let response;
@@ -91,9 +92,11 @@ export default {
       else if (path === "/v1/coach") response = await coach(body, env);
       else if (path === "/v1/cv-analysis") response = await cvAnalysis(body, env);
       else response = json({ error: "Endpoint bulunamadı." }, 404);
+      logEvent("ai_request", { path, status: response.status, ms: Date.now() - startedAt });
       return withInstallationToken(response, token);
     } catch (error) {
       logError(url.pathname, error);
+      logEvent("ai_request", { path: url.pathname, status: 502, ms: Date.now() - startedAt });
       return withInstallationToken(json({ error: safeError(error) }, 502), token);
     }
   },
