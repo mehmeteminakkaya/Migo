@@ -16,6 +16,7 @@ import com.example.migo.data.model.SmartProfileResult
 import com.example.migo.data.model.UserProfile
 import com.example.migo.data.remote.CloudSyncService
 import com.example.migo.data.remote.MigoClientIdentity
+import com.example.migo.notifications.DailyReminder
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -147,6 +148,7 @@ class MigoViewModel(application: Application) : AndroidViewModel(application) {
 
     fun reset() {
         preferences.clear()
+        DailyReminder.cancel(getApplication())
         hasPrivacyConsent = false
         profile = null
         selectedInterests = emptyList()

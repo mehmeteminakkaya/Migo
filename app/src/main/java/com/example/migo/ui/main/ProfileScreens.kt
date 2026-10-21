@@ -277,6 +277,16 @@ internal fun SettingsScreen(onBack: () -> Unit, onReset: () -> Unit) {
                 .padding(horizontal = 18.dp, vertical = 6.dp)
         ) {
             Text(
+                "BİLDİRİMLER",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            ReminderSettingsCard()
+            Spacer(modifier = Modifier.height(22.dp))
+            Text(
                 "GİZLİLİK VE VERİ",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,

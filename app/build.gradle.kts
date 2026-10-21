@@ -100,6 +100,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.compose.ui.text.google.fonts)
     implementation(libs.pdfbox.android)
     testImplementation(libs.junit)

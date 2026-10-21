@@ -53,6 +53,7 @@ class MigoPreferences(
             remove(KEY_SESSION)
             remove(KEY_PRIVACY_CONSENT_VERSION)
             remove(KEY_PRIVACY_CONSENT_AT)
+            remove(KEY_REMINDER_ENABLED)
             putBoolean(KEY_PENDING_CLOUD_DELETE, true)
         }
     }
@@ -106,6 +107,14 @@ class MigoPreferences(
 
     fun saveInstallationToken(token: String) {
         preferences.edit { putString(KEY_INSTALLATION_TOKEN, token) }
+    }
+
+    /** Local-only opt-in for the daily "today's step" notification; off until the user turns it on. */
+    fun isReminderEnabled(): Boolean =
+        preferences.getBoolean(KEY_REMINDER_ENABLED, false)
+
+    fun setReminderEnabled(enabled: Boolean) {
+        preferences.edit { putBoolean(KEY_REMINDER_ENABLED, enabled) }
     }
 
     fun isCloudDeletePending(): Boolean =
@@ -395,6 +404,7 @@ class MigoPreferences(
         private const val KEY_INSTALLATION_TOKEN = "installation_token"
         private const val KEY_SYNC_SECRET = "sync_secret"
         private const val KEY_PENDING_CLOUD_DELETE = "pending_cloud_delete"
+        private const val KEY_REMINDER_ENABLED = "daily_reminder_enabled"
         private const val KEY_PRIVACY_CONSENT_VERSION = "privacy_consent_version"
         private const val KEY_PRIVACY_CONSENT_AT = "privacy_consent_at"
         private const val MAX_COACH_MESSAGES = 50
