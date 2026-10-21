@@ -29,7 +29,6 @@ import androidx.compose.material.icons.rounded.Route
 import androidx.compose.material.icons.rounded.WorkOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,20 +36,13 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.migo.data.local.MigoPreferences
-import com.example.migo.data.model.CareerAnalysis
-import com.example.migo.data.model.CareerSession
-import com.example.migo.data.model.CareerTaskPlanner
-import com.example.migo.data.model.UserProfile
-import com.example.migo.data.remote.CloudSyncService
-import com.example.migo.data.remote.MigoClientIdentity
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.migo.ui.analysis.AiDiscoveryScreen
 import com.example.migo.ui.analysis.CareerAnalysisScreen
 import com.example.migo.ui.legal.PrivacyConsentScreen
@@ -72,85 +64,15 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun MigoApp() {
-    val context = LocalContext.current.applicationContext
-    val preferences = remember { MigoPreferences(context) }
-    remember(preferences) {
-        MigoClientIdentity.configure(
-            installationValue = preferences.installationId(),
-            syncSecretValue = preferences.syncSecret(),
-            tokenValue = preferences.installationToken(),
-            onTokenUpdated = preferences::saveInstallationToken
-        )
-        true
-    }
-    val initialSession = remember { preferences.loadSession() }
-    val initialPrivacyConsent = remember { preferences.hasAcceptedPrivacy() }
-    var hasPrivacyConsent by remember { mutableStateOf(initialPrivacyConsent) }
-    var currentScreen by rememberSaveable {
-        mutableIntStateOf(
-            when {
-                initialSession != null && initialPrivacyConsent -> SCREEN_MAIN
-                initialSession != null -> SCREEN_CONSENT
-                else -> SCREEN_WELCOME
-            }
-        )
-    }
-    var profile by remember { mutableStateOf<UserProfile?>(null) }
-    var selectedInterests by remember { mutableStateOf<List<String>>(emptyList()) }
-    var selectedSkills by remember { mutableStateOf<List<String>>(emptyList()) }
-    var careerAnalysis by remember { mutableStateOf<CareerAnalysis?>(null) }
-    var careerSession by remember { mutableStateOf(initialSession) }
-    var cloudSyncReady by remember { mutableStateOf(false) }
+private fun MigoApp(viewModel: MigoViewModel = viewModel()) {
+    val screen = viewModel.screen
 
-    LaunchedEffect(hasPrivacyConsent) {
-        val deleteWasPending = preferences.isCloudDeletePending()
-        if (deleteWasPending) {
-            CloudSyncService.deleteSession().onSuccess {
-                preferences.markCloudDeleteComplete()
-            }
-        }
-
-        if (!hasPrivacyConsent) {
-            cloudSyncReady = false
-            return@LaunchedEffect
-        }
-
-        if (!deleteWasPending) {
-            CloudSyncService.pullSession().onSuccess { rawSession ->
-                rawSession
-                    ?.let(preferences::decodeSession)
-                    ?.let { restoredSession ->
-                        preferences.saveSession(restoredSession)
-                        careerSession = restoredSession
-                        currentScreen = SCREEN_MAIN
-                    }
-            }
-        }
-        cloudSyncReady = true
-    }
-
-    LaunchedEffect(careerSession, cloudSyncReady, hasPrivacyConsent) {
-        val session = careerSession ?: return@LaunchedEffect
-        if (!cloudSyncReady || !hasPrivacyConsent) return@LaunchedEffect
-        delay(900)
-        CloudSyncService.pushSession(preferences.encodeSession(session))
-    }
-
-    BackHandler(enabled = currentScreen in SCREEN_PROFILE..SCREEN_ANALYSIS) {
-        currentScreen = when (currentScreen) {
-            SCREEN_ANALYSIS -> SCREEN_PROFILE
-            SCREEN_AI_DISCOVERY -> SCREEN_PROFILE
-            else -> SCREEN_WELCOME
-        }
-    }
-
-    BackHandler(enabled = currentScreen == SCREEN_CONSENT) {
-        currentScreen = SCREEN_WELCOME
+    BackHandler(enabled = screen in SCREEN_CONSENT..SCREEN_ANALYSIS) {
+        viewModel.onBack()
     }
 
     AnimatedContent(
-        targetState = currentScreen,
+        targetState = screen,
         transitionSpec = {
             val forward = targetState > initialState
             if (forward) {
@@ -162,117 +84,59 @@ private fun MigoApp() {
             }
         },
         label = "screen_transition"
-    ) { screen ->
-        when (screen) {
+    ) { target ->
+        when (target) {
             SCREEN_CONSENT -> PrivacyConsentScreen(
-                onBack = { currentScreen = SCREEN_WELCOME },
-                onAccept = {
-                    preferences.acceptPrivacy()
-                    hasPrivacyConsent = true
-                    currentScreen = if (careerSession == null) SCREEN_PROFILE else SCREEN_MAIN
-                }
+                onBack = { viewModel.navigate(SCREEN_WELCOME) },
+                onAccept = viewModel::acceptPrivacy
             )
             SCREEN_PROFILE -> ProfileSetupScreen(
-                initialProfile = profile,
-                onBackClick = { currentScreen = SCREEN_WELCOME },
-                onContinueClick = { completedProfile ->
-                    profile = completedProfile
-                    currentScreen = SCREEN_AI_DISCOVERY
-                }
+                initialProfile = viewModel.profile,
+                onBackClick = { viewModel.navigate(SCREEN_WELCOME) },
+                onContinueClick = viewModel::submitProfile
             )
             SCREEN_AI_DISCOVERY -> {
-                val completedProfile = profile
+                val completedProfile = viewModel.profile
                 if (completedProfile == null) {
-                    currentScreen = SCREEN_PROFILE
+                    viewModel.navigate(SCREEN_PROFILE)
                 } else {
                     AiDiscoveryScreen(
                         profile = completedProfile,
-                        onBackClick = { currentScreen = SCREEN_PROFILE },
-                        onAnalysisReady = { result ->
-                            selectedInterests = result.inferredInterests
-                            selectedSkills = result.inferredSkills
-                            careerAnalysis = result.analysis
-                            currentScreen = SCREEN_ANALYSIS
-                        }
+                        onBackClick = { viewModel.navigate(SCREEN_PROFILE) },
+                        onAnalysisReady = viewModel::onAnalysisReady
                     )
                 }
             }
             SCREEN_ANALYSIS -> {
-                val analysis = careerAnalysis
-                val completedProfile = profile
+                val analysis = viewModel.careerAnalysis
+                val completedProfile = viewModel.profile
                 if (analysis == null || completedProfile == null) {
-                    currentScreen = SCREEN_PROFILE
+                    viewModel.navigate(SCREEN_PROFILE)
                 } else {
                     CareerAnalysisScreen(
                         profile = completedProfile,
                         analysis = analysis,
-                        onBackClick = { currentScreen = SCREEN_PROFILE },
-                        onTargetSelected = { selectedCareer ->
-                            val updatedAnalysis = analysis.copy(
-                                careers = analysis.careers.map { career ->
-                                    if (career.title == selectedCareer.title) selectedCareer else career
-                                }
-                            )
-                            val newSession = CareerSession(
-                                profile = completedProfile,
-                                interests = selectedInterests,
-                                skills = selectedSkills,
-                                analysis = updatedAnalysis,
-                                targetCareer = selectedCareer.title,
-                                tasks = CareerTaskPlanner.build(
-                                    targetCareer = selectedCareer.title,
-                                    nextSteps = updatedAnalysis.nextSteps,
-                                    recommendation = selectedCareer,
-                                    classLevel = completedProfile.classLevel
-                                )
-                            )
-                            careerAnalysis = updatedAnalysis
-                            preferences.saveSession(newSession)
-                            careerSession = newSession
-                            currentScreen = SCREEN_MAIN
-                        }
+                        onBackClick = { viewModel.navigate(SCREEN_PROFILE) },
+                        onTargetSelected = viewModel::selectTarget
                     )
                 }
             }
             SCREEN_MAIN -> {
-                val session = careerSession
+                val session = viewModel.careerSession
                 if (session == null) {
-                    currentScreen = SCREEN_WELCOME
+                    viewModel.navigate(SCREEN_WELCOME)
                 } else {
                     MainShell(
                         session = session,
-                        onSessionChange = { updatedSession ->
-                            careerSession = updatedSession
-                            preferences.saveSession(updatedSession)
-                        },
-                        onReset = {
-                            preferences.clear()
-                            hasPrivacyConsent = false
-                            profile = null
-                            selectedInterests = emptyList()
-                            selectedSkills = emptyList()
-                            careerAnalysis = null
-                            careerSession = null
-                            currentScreen = SCREEN_WELCOME
-                        }
+                        onSessionChange = viewModel::updateSession,
+                        onReset = viewModel::reset
                     )
                 }
             }
-            else -> WelcomeScreen(
-                onStartClick = {
-                    currentScreen = if (hasPrivacyConsent) SCREEN_PROFILE else SCREEN_CONSENT
-                }
-            )
+            else -> WelcomeScreen(onStartClick = viewModel::start)
         }
     }
 }
-
-private const val SCREEN_WELCOME      = 0
-private const val SCREEN_CONSENT      = 1
-private const val SCREEN_PROFILE      = 2
-private const val SCREEN_AI_DISCOVERY = 3
-private const val SCREEN_ANALYSIS     = 4
-private const val SCREEN_MAIN         = 5
 
 // ─── Welcome Screen ────────────────────────────────────────────────────────────
 @Composable
