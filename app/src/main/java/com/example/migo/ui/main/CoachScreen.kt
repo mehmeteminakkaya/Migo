@@ -48,7 +48,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Button
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -69,11 +71,16 @@ import androidx.compose.ui.unit.sp
 import com.example.migo.data.model.CareerSession
 import com.example.migo.data.model.CoachMessage
 
+/** A coach question that could not be answered; kept out of the saved thread and offered for retry. */
+internal data class CoachFailure(val question: String, val message: String)
+
 @Composable
 internal fun CoachScreen(
     session: CareerSession,
     messages: List<CoachMessage>,
     isLoading: Boolean,
+    failure: CoachFailure?,
+    onDismissFailure: () -> Unit,
     onQuestion: (String) -> Unit,
     onNewConversation: () -> Unit
 ) {
@@ -87,8 +94,9 @@ internal fun CoachScreen(
         onQuestion(question)
     }
 
-    LaunchedEffect(messages.size, isLoading) {
-        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
+    LaunchedEffect(messages.size, isLoading, failure) {
+        val lastItem = messages.size - 1 + (if (failure != null) 1 else 0)
+        if (lastItem >= 0) listState.animateScrollToItem(lastItem)
     }
 
     Column(
@@ -127,6 +135,16 @@ internal fun CoachScreen(
                 }
             }
 
+            if (failure != null && !isLoading) {
+                item {
+                    CoachFailureCard(
+                        failure = failure,
+                        onRetry = { onQuestion(failure.question) },
+                        onDismiss = onDismissFailure
+                    )
+                }
+            }
+
             if (isLoading) {
                 item { CoachThinkingCard() }
             } else if (messages.size > 2 && !messages.last().isFromUser) {
@@ -142,6 +160,40 @@ internal fun CoachScreen(
             onSend = { sendQuestion(input) },
             enabled = !isLoading
         )
+    }
+}
+
+@Composable
+private fun CoachFailureCard(failure: CoachFailure, onRetry: () -> Unit, onDismiss: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(6.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                "Sorun gönderilemedi",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.error
+            )
+            Text(
+                "“${failure.question}”",
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                failure.message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onRetry) { Text("Tekrar dene") }
+                TextButton(onClick = onDismiss) { Text("Vazgeç") }
+            }
+        }
     }
 }
 

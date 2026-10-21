@@ -88,6 +88,7 @@ fun MainShell(
         }
     }
     var coachIsLoading by remember { mutableStateOf(false) }
+    var coachFailure by remember { mutableStateOf<CoachFailure?>(null) }
     var planIsLoading by remember { mutableStateOf(false) }
     var planError by remember { mutableStateOf<String?>(null) }
     var insightIsLoading by remember { mutableStateOf(false) }
@@ -126,6 +127,7 @@ fun MainShell(
         val question = rawQuestion.trim()
         if (question.isEmpty() || coachIsLoading) return@ask
         val previousHistory = coachMessages.toList()
+        coachFailure = null
         coachMessages.add(CoachMessage(question, isFromUser = true))
         persistCoachMessages()
         coachIsLoading = true
@@ -135,11 +137,12 @@ fun MainShell(
                     coachMessages.add(CoachMessage(answer, isFromUser = false))
                 }
                 .onFailure { error ->
-                    coachMessages.add(
-                        CoachMessage(
-                            error.message ?: "Şu an yanıt veremiyorum. Lütfen tekrar dene.",
-                            isFromUser = false
-                        )
+                    // Keep the thread clean: a failed turn is not history, so the question is pulled back
+                    // out (never persisted or synced) and offered for retry instead.
+                    coachMessages.removeLastOrNull()
+                    coachFailure = CoachFailure(
+                        question = question,
+                        message = error.message ?: "Şu an yanıt veremiyorum."
                     )
                 }
             coachIsLoading = false
@@ -246,9 +249,12 @@ fun MainShell(
                     session = session,
                     messages = coachMessages,
                     isLoading = coachIsLoading,
+                    failure = coachFailure,
+                    onDismissFailure = { coachFailure = null },
                     onQuestion = askCoach,
                     onNewConversation = {
                         if (!coachIsLoading) {
+                            coachFailure = null
                             coachMessages.clear()
                             coachMessages.add(CoachMessage(coachGreeting, isFromUser = false))
                             persistCoachMessages()
