@@ -92,41 +92,123 @@ internal fun storeDemoSession() = CareerSession(
             title = "Android için 30 günlük rota",
             objective = "Bir ay içinde yayınlanabilir bir mobil ürün ve anlatılabilir portföy kanıtı oluştur.",
             weeks = listOf(
-                "Ürün fikrini netleştir" to "Problem, kullanıcı ve başarı ölçütünü tek sayfada tanımla.",
-                "Çalışan çekirdeği kur" to "Ana kullanıcı akışını çalışan bir prototipe dönüştür.",
-                "Kalite ve kanıt ekle" to "Test, erişilebilirlik ve ekran görüntüleriyle kaliteyi görünür yap.",
-                "Yayınla ve anlat" to "Projeyi yayınla, README ve portföy anlatımını tamamla."
-            ).mapIndexed { weekIndex, (title, outcome) ->
                 CareerPlanWeek(
-                    number = weekIndex + 1,
-                    title = title,
-                    focus = listOf("Keşif", "Uygulama", "Kalite", "Görünürlük")[weekIndex],
-                    outcome = outcome,
+                    number = 1,
+                    title = "Ürün fikrini netleştir",
+                    focus = "Keşif",
+                    outcome = "Problem, kullanıcı ve başarı ölçütünü tek sayfada tanımla.",
                     actions = listOf(
                         CareerPlanAction(
-                            id = "preview_w${weekIndex + 1}_a1",
-                            title = listOf("Ürün özetini yaz", "Ana ekranı geliştir", "Kritik akışı test et", "Mağaza metnini hazırla")[weekIndex],
-                            description = "Tek oturumda tamamlanacak ölçülebilir bir çalışma.",
+                            id = "preview_w1_a1",
+                            title = "Ürün özetini yaz",
+                            description = "Kimin hangi sorununu çözüyorsun? Tek sayfada üç soruya net cevap ver: kim, ne, neden şimdi.",
                             durationMinutes = 45,
-                            deliverable = listOf("Tek sayfalık ürün özeti", "Çalışan APK", "Test raporu", "Yayın taslağı")[weekIndex]
+                            deliverable = "Tek sayfalık ürün özeti"
                         ),
                         CareerPlanAction(
-                            id = "preview_w${weekIndex + 1}_a2",
-                            title = "Çıktıyı gözden geçir",
-                            description = "Bir kontrol listesiyle eksikleri bul ve tek iyileştirme yap.",
+                            id = "preview_w1_a2",
+                            title = "Rakip iki uygulamayı incele",
+                            description = "Benzer iki uygulamayı indir; neyi iyi neyi kötü yaptıklarını üç maddede not al.",
                             durationMinutes = 30,
-                            deliverable = "Önce/sonra notu"
+                            deliverable = "Kısa karşılaştırma notu"
                         ),
                         CareerPlanAction(
-                            id = "preview_w${weekIndex + 1}_a3",
-                            title = "Haftanın kanıtını kaydet",
-                            description = "Sonucu portföy günlüğüne ekle.",
+                            id = "preview_w1_a3",
+                            title = "Haftanın notunu kaydet",
+                            description = "Netleşen fikri ve hâlâ emin olmadığın bir soruyu portföy günlüğüne yaz.",
                             durationMinutes = 20,
                             deliverable = "Portföy kaydı"
                         )
                     )
+                ),
+                CareerPlanWeek(
+                    number = 2,
+                    title = "Çalışan çekirdeği kur",
+                    focus = "Uygulama",
+                    outcome = "Ana kullanıcı akışını çalışan bir prototipe dönüştür.",
+                    actions = listOf(
+                        CareerPlanAction(
+                            id = "preview_w2_a1",
+                            title = "Ana ekranı geliştir",
+                            description = "Kullanıcının uygulamaya girer girmez göreceği ekranı kodla; şimdilik sahte veriyle çalışsın.",
+                            durationMinutes = 45,
+                            deliverable = "Çalışan ana ekran"
+                        ),
+                        CareerPlanAction(
+                            id = "preview_w2_a2",
+                            title = "Bir arkadaşına dene dedirt",
+                            description = "Prototipi bir arkadaşına aç, nerede takıldığını izle; şimdilik açıklama yapma.",
+                            durationMinutes = 30,
+                            deliverable = "Üç gözlem notu"
+                        ),
+                        CareerPlanAction(
+                            id = "preview_w2_a3",
+                            title = "Haftanın notunu kaydet",
+                            description = "Neyin çalıştığını, neyin bozulduğunu portföy günlüğüne yaz.",
+                            durationMinutes = 20,
+                            deliverable = "Portföy kaydı"
+                        )
+                    )
+                ),
+                CareerPlanWeek(
+                    number = 3,
+                    title = "Kalite ve kanıt ekle",
+                    focus = "Kalite",
+                    outcome = "Test, erişilebilirlik ve ekran görüntüleriyle kaliteyi görünür yap.",
+                    actions = listOf(
+                        CareerPlanAction(
+                            id = "preview_w3_a1",
+                            title = "Kritik akışı test et",
+                            description = "En önemli kullanıcı akışı için birkaç otomatik test yaz; en azından hatasız çalıştığını kanıtla.",
+                            durationMinutes = 45,
+                            deliverable = "Test raporu"
+                        ),
+                        CareerPlanAction(
+                            id = "preview_w3_a2",
+                            title = "Erişilebilirliği kontrol et",
+                            description = "Ekran okuyucuyla dene; kontrastı ve dokunma alanlarını gözden geçir.",
+                            durationMinutes = 30,
+                            deliverable = "Kontrol listesi"
+                        ),
+                        CareerPlanAction(
+                            id = "preview_w3_a3",
+                            title = "Ekran görüntülerini al",
+                            description = "Uygulamanın en iyi üç anını görüntüle; portföyünde bunları kullanacaksın.",
+                            durationMinutes = 20,
+                            deliverable = "3 ekran görüntüsü"
+                        )
+                    )
+                ),
+                CareerPlanWeek(
+                    number = 4,
+                    title = "Yayınla ve anlat",
+                    focus = "Görünürlük",
+                    outcome = "Projeyi yayınla, README ve portföy anlatımını tamamla.",
+                    actions = listOf(
+                        CareerPlanAction(
+                            id = "preview_w4_a1",
+                            title = "Mağaza metnini hazırla",
+                            description = "Uygulamanın ne yaptığını üç cümlede anlat; teknik değil, faydaya odaklan.",
+                            durationMinutes = 45,
+                            deliverable = "Yayın taslağı"
+                        ),
+                        CareerPlanAction(
+                            id = "preview_w4_a2",
+                            title = "README yaz",
+                            description = "Projeyi nasıl çalıştıracağını ve hangi kararları neden aldığını GitHub'da özetle.",
+                            durationMinutes = 30,
+                            deliverable = "README dosyası"
+                        ),
+                        CareerPlanAction(
+                            id = "preview_w4_a3",
+                            title = "Projeyi paylaş",
+                            description = "Linki bir topluluk veya mülakat listesine ekle; artık gösterebileceğin bir kanıtın var.",
+                            durationMinutes = 20,
+                            deliverable = "Paylaşılan proje linki"
+                        )
+                    )
                 )
-            }
+            )
         ),
         dailyInsight = DailyCareerInsight(
             dateKey = "2026-07-20",

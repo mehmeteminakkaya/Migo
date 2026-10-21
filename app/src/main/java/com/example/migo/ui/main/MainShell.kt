@@ -2,6 +2,12 @@ package com.example.migo.ui.main
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -36,13 +42,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.AutoGraph
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Check
@@ -54,15 +60,14 @@ import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Map
+import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.PrivacyTip
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.RecordVoiceOver
-import androidx.compose.material.icons.rounded.RocketLaunch
-import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material.icons.rounded.WorkOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -94,7 +99,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -119,12 +123,11 @@ import com.example.migo.data.model.CoachMessage
 import com.example.migo.data.model.CvAnalysis
 import com.example.migo.data.model.DailyCareerInsight
 import com.example.migo.data.model.UserProfile
+import com.example.migo.BuildConfig
 import com.example.migo.data.remote.NvidiaCareerService
 import com.example.migo.data.remote.MigoLegalLinks
-import com.example.migo.ui.theme.GradientHeroEnd
-import com.example.migo.ui.theme.GradientHeroMid
-import com.example.migo.ui.theme.GradientHeroStart
 import com.example.migo.ui.theme.MigoGold
+import com.example.migo.ui.theme.MigoSuccess
 import com.example.migo.ui.theme.MigoTheme
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -139,6 +142,7 @@ fun MainShell(
     modifier: Modifier = Modifier
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(MainTab.HOME) }
+    var settingsOpen by rememberSaveable { mutableStateOf(false) }
     val latestSession by rememberUpdatedState(session)
     val shellScope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -324,7 +328,11 @@ fun MainShell(
                         }
                     }
                 )
-                MainTab.PROFILE -> ProfileOverviewScreen(session = session, onReset = onReset)
+                MainTab.PROFILE -> if (settingsOpen) {
+                    SettingsScreen(onBack = { settingsOpen = false }, onReset = onReset)
+                } else {
+                    ProfileOverviewScreen(session = session, onOpenSettings = { settingsOpen = true })
+                }
             }
         }
     }
@@ -471,6 +479,14 @@ private fun HomeScreen(
             }
         }
 
+        val outlookCareer = session.activeCareerRecommendation()
+        if (outlookCareer != null &&
+            (outlookCareer.hiringOutlook.isNotBlank() || outlookCareer.salaryRange.isNotBlank())
+        ) {
+            Spacer(modifier = Modifier.height(24.dp))
+            CareerOutlookRow(outlookCareer)
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
         CalmInsightCard(
             insight = session.dailyInsight,
@@ -479,16 +495,124 @@ private fun HomeScreen(
             onAskCoach = onAskCoach
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextButton(onClick = onOpenPlan) { Text("Tüm planı gör") }
-            TextButton(onClick = onOpenCoach) { Text("AI koça sor") }
-        }
+        Spacer(modifier = Modifier.height(20.dp))
+        HomeQuickActions(
+            onOpenPlan = onOpenPlan,
+            onOpenCoach = onOpenCoach,
+            onOpenTools = onOpenTools
+        )
         Spacer(modifier = Modifier.height(22.dp))
+    }
+}
+
+@Composable
+private fun CareerOutlookRow(career: CareerRecommendation) {
+    Column {
+        Text(
+            "KARİYER GÖRÜNÜMÜ",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (career.hiringOutlook.isNotBlank()) {
+                OutlookMetricCard(
+                    icon = Icons.AutoMirrored.Rounded.TrendingUp,
+                    label = "İşe alım sinyali",
+                    value = career.hiringOutlook,
+                    color = MigoSuccess,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            if (career.salaryRange.isNotBlank()) {
+                OutlookMetricCard(
+                    icon = Icons.Rounded.Payments,
+                    label = "Maaş referansı",
+                    value = compactHomeSalary(career.salaryRange),
+                    color = MigoGold,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun OutlookMetricCard(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(6.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(modifier = Modifier.padding(13.dp)) {
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                value,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeQuickActions(
+    onOpenPlan: () -> Unit,
+    onOpenCoach: () -> Unit,
+    onOpenTools: () -> Unit
+) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        HomeQuickActionButton(Icons.Rounded.Map, "Yol haritan", onOpenPlan, Modifier.weight(1f))
+        HomeQuickActionButton(Icons.AutoMirrored.Rounded.Chat, "AI koç", onOpenCoach, Modifier.weight(1f))
+        HomeQuickActionButton(Icons.Rounded.PictureAsPdf, "CV analizi", onOpenTools, Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun HomeQuickActionButton(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(6.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp, horizontal = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -572,6 +696,13 @@ private fun CareerRouteSummary(
                 modifier = Modifier.padding(bottom = 4.dp)
             )
         }
+        Spacer(modifier = Modifier.height(8.dp))
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.fillMaxWidth().height(3.dp),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.outlineVariant
+        )
         if (session.actionPlan == null) {
             Spacer(modifier = Modifier.height(14.dp))
             Button(
@@ -727,793 +858,6 @@ private fun CalmInsightCard(
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun CareerCompassHero(
-    session: CareerSession,
-    progress: Float,
-    milestonePeriod: String,
-    milestoneTitle: String,
-    onOpenPlan: () -> Unit
-) {
-    val gradient = Brush.linearGradient(
-        listOf(GradientHeroStart, GradientHeroMid, GradientHeroEnd)
-    )
-    Card(onClick = onOpenPlan, shape = RoundedCornerShape(24.dp)) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(gradient)
-                .padding(18.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    color = Color.White.copy(alpha = 0.14f),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Rounded.Flag,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            "MIGO KARİYER GPS",
-                            color = Color.White.copy(alpha = 0.9f),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.weight(1f))
-                Icon(
-                    Icons.AutoMirrored.Rounded.ArrowForward,
-                    contentDescription = "Planı aç",
-                    tint = Color.White.copy(alpha = 0.85f),
-                    modifier = Modifier.size(21.dp)
-                )
-            }
-            Spacer(modifier = Modifier.height(14.dp))
-            Text(
-                "Rotan hazır",
-                color = Color.White,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.ExtraBold,
-            )
-            Text(
-                "Genel tavsiye değil; bölümün, sınıfın ve hedefin için sıralanmış rota.",
-                color = Color.White.copy(alpha = 0.76f),
-                style = MaterialTheme.typography.bodySmall
-            )
-            Spacer(modifier = Modifier.height(13.dp))
-            Surface(
-                color = Color.White.copy(alpha = 0.11f),
-                shape = RoundedCornerShape(18.dp),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.14f))
-            ) {
-                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                    if (maxWidth < 330.dp) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            CareerRoutePoint(
-                                icon = Icons.Rounded.School,
-                                label = "ŞU AN",
-                                value = "${session.profile.classLevel} • ${session.profile.department}"
-                            )
-                            HorizontalDivider(
-                                modifier = Modifier.padding(vertical = 11.dp),
-                                color = Color.White.copy(alpha = 0.18f)
-                            )
-                            CareerRoutePoint(
-                                icon = Icons.Rounded.Flag,
-                                label = "HEDEF",
-                                value = session.targetCareer
-                            )
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier.padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CareerRoutePoint(
-                                icon = Icons.Rounded.School,
-                                label = "ŞU AN",
-                                value = "${session.profile.classLevel}\n${session.profile.department}",
-                                modifier = Modifier.weight(1f)
-                            )
-                            Icon(
-                                Icons.AutoMirrored.Rounded.ArrowForward,
-                                contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.64f),
-                                modifier = Modifier.padding(horizontal = 9.dp).size(19.dp)
-                            )
-                            CareerRoutePoint(
-                                icon = Icons.Rounded.Flag,
-                                label = "HEDEF",
-                                value = session.targetCareer,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(14.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "Rota ilerlemesi",
-                    color = Color.White.copy(alpha = 0.72f),
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    "${(progress * 100).toInt()}%",
-                    color = Color.White,
-                    style = MaterialTheme.typography.labelLarge
-                )
-            }
-            Spacer(modifier = Modifier.height(7.dp))
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(CircleShape),
-                color = Color.White,
-                trackColor = Color.White.copy(alpha = 0.22f)
-            )
-
-            if (milestoneTitle.isNotBlank()) {
-                Spacer(modifier = Modifier.height(14.dp))
-                Row(verticalAlignment = Alignment.Top) {
-                    Icon(
-                        Icons.Rounded.RocketLaunch,
-                        contentDescription = null,
-                        tint = MigoGold,
-                        modifier = Modifier.size(19.dp)
-                    )
-                    Spacer(modifier = Modifier.width(9.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            if (milestonePeriod.isBlank()) "SONRAKİ DURAK" else "SONRAKİ DURAK • ${milestonePeriod.uppercase()}",
-                            color = MigoGold,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            milestoneTitle,
-                            color = Color.White,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-
-        }
-    }
-}
-
-@Composable
-private fun CareerRoutePoint(
-    icon: ImageVector,
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier
-) {
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        Surface(
-            color = Color.White.copy(alpha = 0.13f),
-            shape = RoundedCornerShape(11.dp)
-        ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.padding(8.dp).size(18.dp)
-            )
-        }
-        Spacer(modifier = Modifier.width(9.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(label, color = Color.White.copy(alpha = 0.62f), style = MaterialTheme.typography.labelSmall)
-            Text(
-                value,
-                color = Color.White,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-private fun DailyInsightCard(
-    insight: DailyCareerInsight?,
-    isLoading: Boolean,
-    fallbackAction: String,
-    onAskCoach: (String) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(RoundedCornerShape(13.dp))
-                        .background(Brush.linearGradient(listOf(GradientHeroMid, GradientHeroEnd))),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isLoading && insight == null) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = Color.White)
-                    }
-                }
-                Spacer(modifier = Modifier.width(11.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "MIGO AI • BUGÜNÜN İÇGÖRÜSÜ",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        insight?.title ?: "Kişisel yönlendirmen hazırlanıyor",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(11.dp))
-            Text(
-                insight?.message
-                    ?: "Bölümün, sınıfın ve sıradaki adımın birlikte değerlendiriliyor.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                lineHeight = 21.sp
-            )
-            val rawActionLabel = insight?.actionLabel.orEmpty().ifBlank { fallbackAction }
-            val actionLabel = AiContentSanitizer.taskText(rawActionLabel).title
-            if (actionLabel.isNotBlank()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Rounded.Bolt, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.width(9.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("BUGÜN YAP", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                            Text(actionLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-            if (insight?.coachPrompt?.isNotBlank() == true) {
-                Spacer(modifier = Modifier.height(6.dp))
-                TextButton(onClick = { onAskCoach(insight.coachPrompt) }) {
-                    Text("Bunu AI koçla planla")
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null, modifier = Modifier.size(17.dp))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun NextBestActionCard(
-    task: CareerTask,
-    stepNumber: Int,
-    focusTitle: String,
-    focusDescription: String,
-    onOpenPlan: () -> Unit,
-    onComplete: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-        shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.22f))
-    ) {
-        Column(modifier = Modifier.padding(17.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text(
-                        "AKTİF ADIM $stepNumber",
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Spacer(modifier = Modifier.weight(1f))
-                Icon(
-                    Icons.Rounded.CalendarMonth,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(5.dp))
-                Text(
-                    "${task.durationMinutes} dk",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                task.title,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            if (task.description.isNotBlank()) {
-                Spacer(modifier = Modifier.height(5.dp))
-                Text(
-                    task.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 20.sp,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
-                shape = RoundedCornerShape(15.dp)
-            ) {
-                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
-                    Icon(
-                        Icons.Rounded.AutoGraph,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(19.dp)
-                    )
-                    Spacer(modifier = Modifier.width(9.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "Neden şimdi? • $focusTitle",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            focusDescription,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(13.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onOpenPlan, modifier = Modifier.weight(1f)) {
-                    Text("Detayı gör")
-                }
-                Button(
-                    onClick = onComplete,
-                    modifier = Modifier.weight(1.35f),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(17.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Tamamladım", fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun WeeklySprintCard(
-    tasks: List<CareerTask>,
-    completedTaskIds: Set<String>,
-    onToggleTask: (String) -> Unit
-) {
-    val completed = tasks.count { it.id in completedTaskIds }
-    val progress = if (tasks.isEmpty()) 0f else completed.toFloat() / tasks.size
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f))
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        if (completed == tasks.size && tasks.isNotEmpty()) "Sprint tamamlandı" else "Küçük adımlar, görünür ilerleme",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        "$completed görev bitti • ${tasks.sumOf { it.durationMinutes }} dk toplam",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = CircleShape) {
-                    Text(
-                        "${(progress * 100).toInt()}%",
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(11.dp))
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
-                color = MaterialTheme.colorScheme.secondary,
-                trackColor = MaterialTheme.colorScheme.secondaryContainer
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            tasks.forEachIndexed { index, task ->
-                WeeklyMissionRow(
-                    task = task,
-                    completed = task.id in completedTaskIds,
-                    onToggle = { onToggleTask(task.id) }
-                )
-                if (index != tasks.lastIndex) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(start = 44.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun WeeklyMissionRow(task: CareerTask, completed: Boolean, onToggle: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(30.dp)
-                .clip(CircleShape)
-                .background(
-                    if (completed) MaterialTheme.colorScheme.secondary
-                    else MaterialTheme.colorScheme.surfaceVariant
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            if (completed) {
-                Icon(Icons.Rounded.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(17.dp))
-            } else {
-                Icon(Icons.Rounded.Bolt, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-            }
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                task.title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = if (completed) FontWeight.Normal else FontWeight.SemiBold,
-                color = if (completed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                "${task.category} • ${task.durationMinutes} dk",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            if (task.description.isNotBlank()) {
-                Text(
-                    task.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    lineHeight = 17.sp
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun CareerRealityCard(
-    career: CareerRecommendation,
-    targetCareer: String,
-    isPlanLoading: Boolean,
-    errorMessage: String?,
-    onCreatePlan: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f))
-    ) {
-        Column(modifier = Modifier.padding(17.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(13.dp)) {
-                    Icon(
-                        Icons.Rounded.WorkOutline,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.padding(10.dp).size(21.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(11.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        targetCareer,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        career.reason,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                CareerMarketMetric(
-                    icon = Icons.AutoMirrored.Rounded.TrendingUp,
-                    label = "İşe alım görünümü",
-                    value = career.hiringOutlook.ifBlank { "Analiz ediliyor" },
-                    modifier = Modifier.weight(1f)
-                )
-                CareerMarketMetric(
-                    icon = Icons.Rounded.AutoGraph,
-                    label = "Maaş referansı",
-                    value = compactHomeSalary(career.salaryRange),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            if (career.roles.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(13.dp))
-                Text("Yakın roller", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(modifier = Modifier.height(7.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    career.roles.take(3).forEach { role ->
-                        Surface(
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.74f),
-                            shape = RoundedCornerShape(11.dp)
-                        ) {
-                            Text(
-                                role,
-                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(14.dp))
-            Button(
-                onClick = onCreatePlan,
-                enabled = !isPlanLoading,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                if (isPlanLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Icon(Icons.Rounded.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
-                }
-                Spacer(modifier = Modifier.width(7.dp))
-                Text(
-                    if (isPlanLoading) "Plan hazırlanıyor…" else "AI ile 30 günlük plan oluştur",
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            if (errorMessage != null) {
-                Text(
-                    errorMessage,
-                    modifier = Modifier.padding(top = 8.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    textAlign = TextAlign.Center
-                )
-            }
-            Text(
-                "Maaş rakamı yalnızca doğrulanabilen dış kaynak verisi varsa gösterilir; kesin teklif veya iş garantisi değildir.",
-                modifier = Modifier.padding(top = 8.dp),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
-
-@Composable
-private fun CareerMarketMetric(
-    icon: ImageVector,
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
-        shape = RoundedCornerShape(15.dp)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(19.dp))
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(
-                value,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-private fun AiStrategyCard(
-    session: CareerSession,
-    onOpenCoach: () -> Unit,
-    onAskCoach: (String) -> Unit
-) {
-    val prompt = "${session.profile.classLevel} seviyesinde ${session.targetCareer} hedefim için " +
-        "bu ay hangi somut çıktıyı üretmeliyim?"
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        shape = RoundedCornerShape(22.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            MaterialTheme.colorScheme.primaryContainer,
-                            MaterialTheme.colorScheme.secondaryContainer
-                        )
-                    )
-                )
-                .padding(17.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.primary),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = Color.White)
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Migo AI stratejistin", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
-                    Text(
-                        "Bölümünü ve sınıfını bilen koç",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                TextButton(onClick = onOpenCoach) { Text("Sohbet") }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.74f),
-                shape = RoundedCornerShape(15.dp)
-            ) {
-                Text(
-                    "“$prompt”",
-                    modifier = Modifier.padding(12.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-            Spacer(modifier = Modifier.height(11.dp))
-            Button(
-                onClick = { onAskCoach(prompt) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Text("Bu soruyu Migo'ya sor", fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.width(7.dp))
-                Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun QuickCareerActions(onOpenPlan: () -> Unit, onOpenTools: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        QuickCareerAction(
-            icon = Icons.Rounded.Map,
-            title = "Yol haritam",
-            subtitle = "Tüm adımlar",
-            onClick = onOpenPlan,
-            modifier = Modifier.weight(1f)
-        )
-        QuickCareerAction(
-            icon = Icons.Rounded.PictureAsPdf,
-            title = "CV laboratuvarı",
-            subtitle = "AI ile güçlendir",
-            onClick = onOpenTools,
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-@Composable
-private fun QuickCareerAction(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        onClick = onClick,
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f))
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(11.dp)) {
-                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(8.dp).size(19.dp))
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -1817,6 +1161,23 @@ private fun ActionPlanWeekCard(
                     fontWeight = FontWeight.Bold
                 )
             }
+            if (week.outcome.isNotBlank()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 15.dp, end = 15.dp, bottom = 14.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Icon(Icons.Rounded.Flag, contentDescription = null, tint = accent, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(7.dp))
+                    Text(
+                        week.outcome,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 18.sp
+                    )
+                }
+            }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             LinearProgressIndicator(
                 progress = { progress },
@@ -1840,20 +1201,7 @@ private fun ActionPlanWeekCard(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 10.dp, bottom = 4.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Icon(Icons.Rounded.Flag, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text("HAFTA ÇIKTISI", style = MaterialTheme.typography.labelSmall, color = accent, fontWeight = FontWeight.Bold)
-                        Text(week.outcome, style = MaterialTheme.typography.bodySmall, lineHeight = 18.sp)
-                    }
-                }
+                Spacer(modifier = Modifier.height(6.dp))
             }
         }
     }
@@ -2045,15 +1393,7 @@ private fun CoachScreen(
             .fillMaxSize()
             .statusBarsPadding()
             .imePadding()
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.07f),
-                        MaterialTheme.colorScheme.background,
-                        MaterialTheme.colorScheme.background
-                    )
-                )
-            )
+            .background(MaterialTheme.colorScheme.background)
     ) {
         CoachHeader(
             targetCareer = session.targetCareer,
@@ -2236,77 +1576,65 @@ private fun UserMessageBubble(text: String) {
 private fun CoachAnswerCard(text: String) {
     val content = remember(text) { parseCoachContent(text) }
 
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(6.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Rounded.AutoAwesome,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(19.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text(
-                        "Migo'nun önerisi",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        if (content.steps.isEmpty()) "Sana özel yanıt" else "${content.steps.size} adımlık eylem planı",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Rounded.AutoAwesome,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(15.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
             if (content.intro.isNotBlank()) {
-                Text(
-                    content.intro,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    lineHeight = 22.sp
-                )
-                if (content.steps.isNotEmpty()) Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            content.steps.forEachIndexed { index, step ->
-                CoachTimelineStep(
-                    step = step,
-                    index = index,
-                    isLast = index == content.steps.lastIndex
-                )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    shape = RoundedCornerShape(
+                        topStart = 2.dp,
+                        topEnd = 14.dp,
+                        bottomStart = 14.dp,
+                        bottomEnd = 14.dp
+                    )
+                ) {
+                    Text(
+                        content.intro,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        lineHeight = 21.sp
+                    )
+                }
             }
 
             if (content.steps.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
+                if (content.intro.isNotBlank()) Spacer(modifier = Modifier.height(12.dp))
+                content.steps.forEachIndexed { index, step ->
+                    CoachTimelineStep(
+                        step = step,
+                        index = index,
+                        isLast = index == content.steps.lastIndex
+                    )
+                }
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         Icons.Rounded.Bolt,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(15.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         "Hepsini birden değil, bugün yalnızca ilk adımı tamamla.",
                         style = MaterialTheme.typography.bodySmall,
@@ -2466,39 +1794,61 @@ private fun CoachPromptCard(
 
 @Composable
 private fun CoachThinkingCard() {
-    Surface(
-        shape = RoundedCornerShape(6.dp),
-        color = Color.Transparent,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary),
+            contentAlignment = Alignment.Center
         ) {
+            Icon(
+                Icons.Rounded.AutoAwesome,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(15.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            shape = RoundedCornerShape(
+                topStart = 2.dp,
+                topEnd = 14.dp,
+                bottomStart = 14.dp,
+                bottomEnd = 14.dp
+            )
+        ) {
+            CoachTypingDots(modifier = Modifier.padding(horizontal = 16.dp, vertical = 15.dp))
+        }
+    }
+}
+
+@Composable
+private fun CoachTypingDots(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "coach-typing")
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        repeat(3) { index ->
+            val alpha by transition.animateFloat(
+                initialValue = 0.25f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 560, delayMillis = index * 150, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "dot_$index"
+            )
             Box(
                 modifier = Modifier
-                    .size(38.dp)
+                    .size(7.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Rounded.AutoAwesome,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Planın hazırlanıyor", fontWeight = FontWeight.Bold)
-                Text(
-                    "Migo hedefini ve profilini değerlendiriyor…",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = alpha))
+            )
         }
     }
 }
@@ -2535,14 +1885,12 @@ private fun CoachComposer(
     onSend: () -> Unit,
     enabled: Boolean
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 8.dp
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
                 .navigationBarsPadding()
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -2646,9 +1994,7 @@ private fun cleanCoachMarkdown(text: String): String = text
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ProfileOverviewScreen(session: CareerSession, onReset: () -> Unit) {
-    var showResetDialog by remember { mutableStateOf(false) }
-    val uriHandler = LocalUriHandler.current
+private fun ProfileOverviewScreen(session: CareerSession, onOpenSettings: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -2667,23 +2013,17 @@ private fun ProfileOverviewScreen(session: CareerSession, onReset: () -> Unit) {
                 )
             }
             Surface(
+                onClick = onOpenSettings,
                 color = Color.Transparent,
                 shape = RoundedCornerShape(4.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Rounded.AutoAwesome,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("AI profil", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
-                }
+                Icon(
+                    Icons.Rounded.Settings,
+                    contentDescription = "Ayarlar",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(9.dp).size(20.dp)
+                )
             }
         }
 
@@ -2740,123 +2080,232 @@ private fun ProfileOverviewScreen(session: CareerSession, onReset: () -> Unit) {
         }
 
         Spacer(modifier = Modifier.height(14.dp))
-        ProfileInfoCard(Icons.Rounded.Flag, "Hedef meslek", session.targetCareer)
-        Spacer(modifier = Modifier.height(10.dp))
-        ProfileInfoCard(Icons.Rounded.CalendarMonth, "Eğitim aşaması", session.profile.classLevel)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ProfileCompactInfo(Icons.Rounded.Flag, "Hedef meslek", session.targetCareer, Modifier.weight(1f))
+            ProfileCompactInfo(Icons.Rounded.CalendarMonth, "Eğitim aşaması", session.profile.classLevel, Modifier.weight(1f))
+        }
 
-        Spacer(modifier = Modifier.height(22.dp))
-        Text("Bölümündeki branşlar", style = MaterialTheme.typography.titleLarge)
-        Spacer(modifier = Modifier.height(5.dp))
-        Text(
-            "Program haritasında inceleyebileceğin kariyer yönleri",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp)
-        ) {
-            session.interests.forEach { ProfileTag(it) }
+        if (session.interests.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(22.dp))
+            Text("Bölümündeki branşlar", style = MaterialTheme.typography.titleLarge)
+            Spacer(modifier = Modifier.height(10.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                verticalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                session.interests.forEach { ProfileTag(it) }
+            }
+        }
+
+        if (session.skills.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(22.dp))
+            Text("Bu aşamanın gelişim alanları", style = MaterialTheme.typography.titleLarge)
+            Spacer(modifier = Modifier.height(10.dp))
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(6.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    session.skills.forEach { SkillProfileRow(it) }
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(22.dp))
-        Text("Bu aşamanın gelişim alanları", style = MaterialTheme.typography.titleLarge)
-        Spacer(modifier = Modifier.height(5.dp))
-        Text(
-            "Sınıf seviyene ve seçtiğin branşa göre önerilen yetkinlikler",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            session.skills.forEach { SkillProfileRow(it) }
-        }
-
-        Spacer(modifier = Modifier.height(22.dp))
-        Text("Gizlilik ve verilerin", style = MaterialTheme.typography.titleLarge)
-        Spacer(modifier = Modifier.height(5.dp))
-        Text(
-            "Migo'da paylaştığın bilgiler senin kontrolünde.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(10.dp))
         Surface(
+            onClick = onOpenSettings,
             modifier = Modifier.fillMaxWidth(),
             color = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(6.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
-            Column(modifier = Modifier.padding(vertical = 6.dp)) {
-                PrivacySummaryRow(
-                    icon = Icons.Rounded.CloudDone,
-                    text = "Profilin, ilerlemen ve son 50 AI koç mesajın anonim bulut kasasında eşitlenir."
-                )
-                PrivacySummaryRow(
-                    icon = Icons.Rounded.PictureAsPdf,
-                    text = "CV dosyan saklanmaz; cihazda çıkarılan metin yalnızca analiz için gönderilir."
-                )
-                PrivacySummaryRow(
-                    icon = Icons.Rounded.PrivacyTip,
-                    text = "Etkin olmayan bulut kasaları 180 gün sonra otomatik silinir."
-                )
-                HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
-                )
-                PrivacyLinkRow(
-                    title = "Gizlilik Bildirimi",
-                    subtitle = "Hangi verinin neden işlendiğini gör",
-                    onClick = { uriHandler.openUri(MigoLegalLinks.privacy) }
-                )
-                PrivacyLinkRow(
-                    title = "Kullanım Koşulları",
-                    subtitle = "Migo'nun kullanım kapsamını incele",
-                    onClick = { uriHandler.openUri(MigoLegalLinks.terms) }
-                )
-                PrivacyLinkRow(
-                    title = "Destek",
-                    subtitle = "Soru, hata ve veri talebi gönder",
-                    onClick = { uriHandler.openUri(MigoLegalLinks.support) }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { showResetDialog = true },
-            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-            shape = RoundedCornerShape(6.dp)
-        ) {
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                modifier = Modifier.padding(horizontal = 15.dp, vertical = 13.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    Icons.Rounded.DeleteForever,
+                    Icons.Rounded.Settings,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
+                    Text("Ayarlar", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     Text(
-                        "Tüm verilerimi sil",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    Text(
-                        "Cihazdaki ve buluttaki Migo verilerini kaldır",
+                        "Gizlilik, veri ve hesap",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onErrorContainer
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                Icon(
+                    Icons.AutoMirrored.Rounded.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
         Spacer(modifier = Modifier.height(18.dp))
+    }
+}
+
+@Composable
+private fun ProfileCompactInfo(icon: ImageVector, label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(6.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(17.dp))
+            Spacer(modifier = Modifier.height(7.dp))
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                value,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsScreen(onBack: () -> Unit, onReset: () -> Unit) {
+    var showResetDialog by remember { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Geri")
+            }
+            Spacer(modifier = Modifier.width(2.dp))
+            Text("Ayarlar", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 18.dp, vertical = 6.dp)
+        ) {
+            Text(
+                "GİZLİLİK VE VERİ",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(6.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                    PrivacySummaryRow(
+                        icon = Icons.Rounded.CloudDone,
+                        text = "Profilin, ilerlemen ve son 50 AI koç mesajın anonim bulut kasasında eşitlenir."
+                    )
+                    PrivacySummaryRow(
+                        icon = Icons.Rounded.PictureAsPdf,
+                        text = "CV dosyan saklanmaz; cihazda çıkarılan metin yalnızca analiz için gönderilir."
+                    )
+                    PrivacySummaryRow(
+                        icon = Icons.Rounded.PrivacyTip,
+                        text = "Etkin olmayan bulut kasaları 180 gün sonra otomatik silinir."
+                    )
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
+                    )
+                    PrivacyLinkRow(
+                        title = "Gizlilik Bildirimi",
+                        subtitle = "Hangi verinin neden işlendiğini gör",
+                        onClick = { uriHandler.openUri(MigoLegalLinks.privacy) }
+                    )
+                    PrivacyLinkRow(
+                        title = "Kullanım Koşulları",
+                        subtitle = "Migo'nun kullanım kapsamını incele",
+                        onClick = { uriHandler.openUri(MigoLegalLinks.terms) }
+                    )
+                    PrivacyLinkRow(
+                        title = "Destek",
+                        subtitle = "Soru, hata ve veri talebi gönder",
+                        onClick = { uriHandler.openUri(MigoLegalLinks.support) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(26.dp))
+            Text(
+                "HESAP",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showResetDialog = true },
+                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Rounded.DeleteForever,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Tüm verilerimi sil",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Text(
+                            "Cihazdaki ve buluttaki Migo verilerini kaldır",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(26.dp))
+            Text(
+                "Migo • sürüm ${BuildConfig.VERSION_NAME}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(18.dp))
+        }
     }
 
     if (showResetDialog) {
@@ -2943,47 +2392,6 @@ private fun PrivacyLinkRow(title: String, subtitle: String, onClick: () -> Unit)
 }
 
 @Composable
-private fun ProfileInfoCard(icon: ImageVector, label: String, value: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(6.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    value,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun ProfileTag(label: String) {
     Surface(
         color = Color.Transparent,
@@ -3001,41 +2409,28 @@ private fun ProfileTag(label: String) {
 
 @Composable
 private fun SkillProfileRow(label: String) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(6.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 13.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 13.dp, vertical = 11.dp),
-            verticalAlignment = Alignment.Top
+        Box(
+            modifier = Modifier
+                .size(22.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .size(25.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Rounded.Check,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(15.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            Icon(
+                Icons.Rounded.Check,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(13.dp)
+            )
         }
-    }
-}
-
-@Composable
-private fun SectionHeader(title: String, action: String, onAction: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        TextButton(onClick = onAction) { Text(action) }
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
     }
 }
 
